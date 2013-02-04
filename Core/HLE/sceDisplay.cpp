@@ -57,6 +57,12 @@ struct WaitVBlankInfo
 	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(0) {}
 	u32 threadID;
 	int vcountUnblock; // what was this for again?
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(threadID);
+		p.Do(vcountUnblock);
+	}
 };
 
 // STATE BEGIN
@@ -182,10 +188,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 	vblankWaitingThreads.clear();
 
-	// We want to "interrupt" even if there are no installed vblank handlers.
-	__KernelSwitchOffThread("vblank");
 	// Trigger VBlank interrupt handlers.
-	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED, PSP_VBLANK_INTR);
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
 
 	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount+1);
 
