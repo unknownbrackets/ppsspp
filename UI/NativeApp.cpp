@@ -92,6 +92,7 @@
 #include "Core/WebServer.h"
 #include "GPU/GPUInterface.h"
 
+#include "GPU/GPUState.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/HostTypes.h"
@@ -942,6 +943,49 @@ void NativeShutdownGraphics() {
 	ILOG("NativeShutdownGraphics done");
 }
 
+void TakeVC3Screenshot(std::vector<std::string> string_ids) {
+#ifdef _WIN32
+	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+	while (path.length() > 0 && path.back() == '/') {
+		path.resize(path.size() - 1);
+	}
+	if (!File::Exists(path)) {
+		File::CreateDir(path);
+	}
+
+	std::string string_ids_flat;
+	for (size_t i = 0; i < string_ids.size(); ++i) {
+		if (i == 0) {
+			string_ids_flat += string_ids[i];
+		} else {
+			string_ids_flat += "," + string_ids[i];
+		}
+	}
+
+	// First, find a free filename.
+	static int i = 0;
+	char temp[4096];
+
+	while (i < 1000000) {
+		if (g_Config.bScreenshotsAsPNG)
+			sprintf(temp, "%s/screen%05d-%s.png", path.c_str(), i, string_ids_flat.c_str());
+		else
+			sprintf(temp, "%s/screen%05d-%s.jpg", path.c_str(), i, string_ids_flat.c_str());
+		FileInfo info;
+		if (!getFileInfo(temp, &info))
+			break;
+		i++;
+	}
+	i++;
+
+	bool success = TakeGameScreenshot(temp, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_DISPLAY);
+	if (!success) {
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Could not save screenshot file"));
+	}
+#endif
+}
+
 void TakeScreenshot() {
 	g_TakeScreenshot = false;
 
@@ -979,6 +1023,9 @@ void TakeScreenshot() {
 	}
 }
 
+extern std::vector<std::string> vc3_screenshot_special;
+extern int vc3_screenshot_special_frame;
+
 void RenderOverlays(UIContext *dc, void *userdata) {
 	// Thin bar at the top of the screen like Chrome.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
@@ -999,6 +1046,11 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 			dc->FillRect(solid, bounds);
 		}
 		dc->Flush();
+	}
+
+	if (!vc3_screenshot_special.empty() && vc3_screenshot_special_frame <= gpuStats.numFlips) {
+		TakeVC3Screenshot(vc3_screenshot_special);
+		vc3_screenshot_special.clear();
 	}
 
 	if (g_TakeScreenshot) {

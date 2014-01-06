@@ -24,6 +24,8 @@
 #include "math/math_util.h"
 #include "profiler/profiler.h"
 
+#include "GPU/GPUState.h"
+
 #include "Common/ChunkFile.h"
 #include "Core/Core.h"
 #include "Core/MemMap.h"
@@ -36,6 +38,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 
 #include "RegCache.h"
@@ -43,6 +46,11 @@
 
 #include "Core/Host.h"
 #include "Core/Debugger/Breakpoints.h"
+
+// This allows things to fade in, etc.
+static const int VC3_FRAME_DELAY = 25;
+std::vector<std::string> vc3_screenshot_special;
+int vc3_screenshot_special_frame;
 
 namespace MIPSComp
 {
@@ -321,6 +329,53 @@ MIPSOpcode Jit::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
+static void Jit_VC3_Special() {
+	/*
+struct UnkStruct1 {
+	// at least the first 4 bytes are typically TEXT.
+	char txtClass[12];
+	void *unk1;
+	void *unk2;
+	void *unk3;
+	void *unk4;
+	// ...?
+};
+
+void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
+	if (info->unk3 == 0 || info->unk4 == 0)
+		return;
+
+	const char *remaining = txt;
+	while (remaining[0] != 0) {
+		remaining = z_un_0884e09c(info, remaining);
+	}
+}
+	*/
+
+	static std::set<std::string> doneStrings;
+
+	// Guess.
+	const char *strClass = Memory::GetCharPointer(PARAM(0));
+	const char *str = Memory::GetCharPointer(PARAM(1));
+
+	if (doneStrings.insert(str).second) {
+		char type = 0;
+		int n = 0;
+		if (sscanf(str, "X%d: ", &n) == 1)
+			type = 'X';
+		else if (sscanf(str, "P%d: ", &n) == 1)
+			type = 'P';
+
+		if (type != 0) {
+			char temp[32];
+			snprintf(temp, sizeof(temp), "%c%d", type, n);
+			vc3_screenshot_special.push_back(temp);
+			vc3_screenshot_special_frame = gpuStats.numFlips + VC3_FRAME_DELAY;
+		}
+		NOTICE_LOG(HLE, "%s: %s", strClass, str);
+	}
+}
+
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
@@ -345,6 +400,10 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 	b->normalEntry = GetCodePtr();
 
 	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
+
+	if (js.compilerPC == 0x0884EE40) {
+		ABI_CallFunction(Jit_VC3_Special);
+	}
 
 	gpr.Start(mips_, &js, &jo, analysis);
 	fpr.Start(mips_, &js, &jo, analysis, RipAccessible(&mips_->v[0]));
