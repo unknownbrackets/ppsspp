@@ -36,6 +36,8 @@ extern int g_iNumVideos;
 
 namespace DX9 {
 
+
+
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
 
 // If a texture hasn't been seen for this many frames, get rid of it.
@@ -47,6 +49,12 @@ namespace DX9 {
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
+template <typename T> static void SafeRelease(T obj) {
+	if (obj != NULL && obj != (T)-1) {
+		obj->Release();
+	}
+}
+
 TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -56,7 +64,6 @@ TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
-	// glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	maxAnisotropyLevel = 16;
 	SetupQuickTexHash();
 #ifdef _XBOX
@@ -76,11 +83,11 @@ void TextureCacheDX9::Clear(bool delete_them) {
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
-			iter->second.texture->Release();
+			SafeRelease(iter->second.texture);
 		}
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
-			iter->second.texture->Release();
+			SafeRelease(iter->second.texture);
 		}
 	}
 	if (cache.size() + secondCache.size()) {
@@ -103,7 +110,7 @@ void TextureCacheDX9::Decimate() {
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-			iter->second.texture->Release();
+			SafeRelease(iter->second.texture);
 			cache.erase(iter++);
 		} else {
 			++iter;
@@ -114,7 +121,7 @@ void TextureCacheDX9::Decimate() {
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-				iter->second.texture->Release();
+				SafeRelease(iter->second.texture);
 				secondCache.erase(iter++);
 			} else {
 				++iter;
@@ -200,37 +207,42 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebufferDX9 *framebuffe
 }
 
 inline void TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, bool exactMatch) {
-		// If they match exactly, it's non-CLUT and from the top left.
+	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
+		// Apply to non-buffered and buffered mode only.
+		if (!(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE))
+			return;
+
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer || entry->invalidHint == -1) {
 				if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
-				// If "AttachFramebufferValid" , Evangelion Jo and Kurohyou 2 will be 'blue background' in-game
 				AttachFramebufferInvalid(entry, framebuffer);
 			} else {
 				AttachFramebufferValid(entry, framebuffer);
 			}
 		// TODO: Delete the original non-fbo texture too.
-	}
-		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-			// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
-			const bool compatFormat = framebuffer->format == entry->format
-				|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
-				|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+		}
+	} else {
+		// Apply to buffered mode only.
+		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
+			return;
 
-			// Is it at least the right stride?
-			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
-				if (framebuffer->format != entry->format) {
+		// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
+		const bool compatFormat = framebuffer->format == entry->format
+			|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
+			|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+
+		// Is it at least the right stride?
+		if (framebuffer->fb_stride == entry->bufw && compatFormat) {
+			if (framebuffer->format != entry->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-					// TODO: Use an FBO to translate the palette?
-				// If 'AttachFramebufferInvalid' , Kurohyou 2 will be missing battle scene in-game and FF Type-0 will have black box shadow/'blue fog' and 3rd birthday will have 'blue fog'
-				// If 'AttachFramebufferValid' , DBZ VS Tag will have 'burning effect' , 
-					AttachFramebufferValid(entry, framebuffer);
-				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
+				// TODO: Use an FBO to translate the palette?
+				AttachFramebufferValid(entry, framebuffer);
+			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
-					// TODO: Keep track of the y offset.
+				// TODO: Keep track of the y offset.
 				// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
 				AttachFramebufferInvalid(entry, framebuffer);
 			}
@@ -806,7 +818,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry)
 	if (useBufferedRendering) {
 		// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
 		// But let's still not use random memory.
-		if (entry->framebuffer->fbo && entry->invalidHint != -1) {
+		if (entry->framebuffer->fbo) {
 			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 			// Keep the framebuffer alive.
 			// TODO: Dangerous if it sets a new one?
@@ -828,7 +840,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry)
 	}
 }
 
-void TextureCacheDX9::SetTexture() {
+void TextureCacheDX9::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -837,6 +849,9 @@ void TextureCacheDX9::SetTexture() {
 	}
 #endif
 
+	if (force) {
+		lastBoundTexture = INVALID_TEX;
+	}
 	u32 texaddr = gstate.getTextureAddress(0);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
@@ -1007,7 +1022,7 @@ void TextureCacheDX9::SetTexture() {
 					if (entry->texture == lastBoundTexture) {
 						lastBoundTexture = INVALID_TEX;
 					}
-					entry->texture->Release();
+					SafeRelease(entry->texture);
 				}
 			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
@@ -1541,8 +1556,12 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 			fmt = 0xDEAD;
 			break;
 		}
-		sprintf(fname, "game:\\pic\\pic.%02x.%04x.%08x.%08x.png", ipic++, fmt, entry.format, clutformat);
-		D3DXSaveTextureToFile(fname, D3DXIFF_PNG, entry.texture, NULL);
+		sprintf(fname, "game:\\pic\\pic.%02x.%04x.%08x.%08x.dds", ipic++, fmt, entry.format, clutformat);
+		D3DXSaveTextureToFile(fname, D3DXIFF_DDS, entry.texture, NULL);
+
+		if (ipic == 0x1b) {
+			printf("gg:%08x\n", entry.fullhash);
+		}
 #endif
 	}
 }

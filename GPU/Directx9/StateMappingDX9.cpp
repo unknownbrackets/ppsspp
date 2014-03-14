@@ -264,6 +264,15 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
+#if 1
+	// d3d only
+	if (wantBlend) {
+		GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+		pD3Ddevice->SetRenderState(D3DRS_ALPHAFUNC, ztests[alphaTestFunc]);
+		pD3Ddevice->SetRenderState(D3DRS_ALPHAREF, gstate.getAlphaTestRef());
+	}
+#endif
+
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
 	float renderX, renderY;

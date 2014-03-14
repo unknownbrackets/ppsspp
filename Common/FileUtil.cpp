@@ -214,7 +214,11 @@ bool Delete(const std::string &filename)
 	}
 
 #ifdef _WIN32
+#ifdef UNICODE
 	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str()))
+#else
+	if (!DeleteFile(filename.c_str()))
+#endif
 	{
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg());
@@ -235,8 +239,12 @@ bool Delete(const std::string &filename)
 bool CreateDir(const std::string &path)
 {
 	INFO_LOG(COMMON, "CreateDir: directory %s", path.c_str());
-#ifdef _WIN32
+#ifdef _WIN32	
+#ifdef UNICODE
 	if (::CreateDirectory(ConvertUTF8ToWString(path).c_str(), NULL))
+#else
+	if (::CreateDirectory(path.c_str(), NULL))
+#endif
 		return true;
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS)
@@ -327,7 +335,11 @@ bool DeleteDir(const std::string &filename)
 	}
 
 #ifdef _WIN32
+#ifdef UNICODE
 	if (::RemoveDirectory(ConvertUTF8ToWString(filename).c_str()))
+#else	
+	if (::RemoveDirectory(filename.c_str()))
+#endif
 		return true;
 #else
 	if (rmdir(filename.c_str()) == 0)
@@ -356,7 +368,11 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	INFO_LOG(COMMON, "Copy: %s --> %s", 
 			srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
+#ifdef UNICODE
 	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
+#else	
+	if (CopyFile(srcFilename.c_str(), destFilename.c_str(), FALSE))
+#endif
 		return true;
 
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
@@ -531,7 +547,11 @@ bool DeleteDirRecursively(const std::string &directory)
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
+#ifdef UNICODE
 	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
+#else	
+	HANDLE hFind = FindFirstFile((directory + "\\*").c_str(), &ffd);
+#endif
 
 	if (hFind == INVALID_HANDLE_VALUE)
 	{
@@ -542,7 +562,12 @@ bool DeleteDirRecursively(const std::string &directory)
 	// windows loop
 	do
 	{
+
+#ifdef UNICODE
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
+#else
+		const std::string virtualName = (ffd.cFileName);
+#endif
 #else
 	struct dirent dirent, *result = NULL;
 	DIR *dirp = opendir(directory.c_str());

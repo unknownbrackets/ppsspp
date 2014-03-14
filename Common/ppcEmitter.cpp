@@ -825,7 +825,7 @@ namespace PpcGen {
 
 		// Save fpr
 		for(int i = 14; i < 32; i ++) {
-			SFD((PPCReg)i, R5, i * regSize);
+			SFD((PPCReg)i, R10, i * regSize);
 		}
 #endif
 	}
