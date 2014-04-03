@@ -30,6 +30,7 @@
 
 class ShaderManager;
 class LinkedShader;
+class DisplayListCache;
 
 class GLES_GPU : public GPUCommon {
 public:
@@ -177,6 +178,7 @@ private:
 	void ReinitializeInternal();
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
+	inline bool TryEnterJit(DisplayList &list);
 
 	static CommandInfo cmdInfo_[256];
 
@@ -186,10 +188,13 @@ private:
 	TransformDrawEngine transformDraw_;
 	FragmentTestCache fragmentTestCache_;
 	ShaderManager *shaderManager_;
+	DisplayListCache *jitCache_;
 
 	bool resized_;
 	int lastVsync_;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	friend class DisplayListCache;
 };

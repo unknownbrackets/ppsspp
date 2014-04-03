@@ -34,6 +34,7 @@
 #include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/GLES/GLStateCache.h"
+#include "GPU/GLES/DisplayListCache.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
 #include "GPU/GLES/Framebuffer.h"
@@ -425,6 +426,8 @@ GLES_GPU::GLES_GPU()
 	textureCache_.SetShaderManager(shaderManager_);
 	fragmentTestCache_.SetTextureCache(&textureCache_);
 
+	jitCache_ = new DisplayListCache(this);
+
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
@@ -474,6 +477,7 @@ GLES_GPU::~GLES_GPU() {
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
 	shaderManager_ = nullptr;
+	delete jitCache_;
 
 #ifdef _WIN32
 	GL_SwapInterval(0);
@@ -734,6 +738,12 @@ void GLES_GPU::BeginFrameInternal() {
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 
 	framebufferManager_.BeginFrame();
+
+	jitCache_->DecimateLists();
+}
+
+inline bool GLES_GPU::TryEnterJit(DisplayList &list) {
+	return jitCache_->Execute(list.pc, downcount);
 }
 
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -804,6 +814,10 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 // Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("gpuloop");
+	if (TryEnterJit(list)) {
+		return;
+	}
+
 	const CommandInfo *cmdInfo = cmdInfo_;
 	int dc = downcount;
 	for (; dc > 0; --dc) {
@@ -2411,6 +2425,10 @@ bool GLES_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &
 bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	if (transformDraw_.IsCodePtrVertexDecoder(ptr)) {
 		name = "VertexDecoderJit";
+		return true;
+	}
+	if (jitCache_->IsInSpace(ptr)) {
+		name = "DisplayListJit";
 		return true;
 	}
 	return false;

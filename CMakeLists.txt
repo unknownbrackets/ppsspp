@@ -1072,6 +1072,7 @@ if(ARM)
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.h
 		GPU/Common/VertexDecoderArm.cpp
+		GPU/GLES/DisplayListCacheArm.cpp
 		ext/disarm.cpp)
 elseif(ARM64)
   set(CoreExtra ${CoreExtra}
@@ -1108,6 +1109,7 @@ elseif(X86)
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
 		GPU/Common/VertexDecoderX86.cpp
+		GPU/GLES/DisplayListCacheX86.cpp
 		ext/disarm.cpp)
 elseif(MIPS)
 	set(CoreExtra ${CoreExtra}
@@ -1474,6 +1476,8 @@ add_library(GPU OBJECT
 	GPU/GLES/DepalettizeShader.h
 	GPU/GLES/FBO.cpp
 	GPU/GLES/FBO.h
+	GPU/GLES/DisplayListCache.cpp
+	GPU/GLES/DisplayListCache.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/GLStateCache.cpp
