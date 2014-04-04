@@ -33,6 +33,7 @@
 #include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 
