@@ -26,6 +26,7 @@
 #include "GPU/GLES/FragmentShaderGenerator.h"
 
 class Shader;
+class DisplayListCache;
 
 struct ShaderID {
 	ShaderID() {
@@ -297,4 +298,6 @@ private:
 
 	typedef std::map<ShaderID, Shader *> VSCache;
 	VSCache vsCache_;
+
+	friend class DisplayListCache;
 };
