@@ -31,6 +31,7 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Null/NullGpu.cpp \
 	$$P/GPU/GLES/FBO.cpp \
 	$$P/GPU/GLES/DepalettizeShader.cpp \
+	$$P/GPU/GLES/DisplayListCache.cpp \
 	$$P/GPU/GLES/FragmentShaderGenerator.cpp \
 	$$P/GPU/GLES/FragmentTestCache.cpp \
 	$$P/GPU/GLES/Framebuffer.cpp \
@@ -68,7 +69,7 @@ else:i86: SOURCES += $$P/GPU/Common/VertexDecoderX86.cpp
 else: SOURCES += $$P/GPU/Common/VertexDecoderFake.cpp
 
 arm: SOURCES += $$P/GPU/GLES/DisplayListCacheArm.cpp
-else:SOURCES += $$P/GPU/GLES/DisplayListCacheX86.cpp
+else: SOURCES += $$P/GPU/GLES/DisplayListCacheX86.cpp
 
 HEADERS += $$P/GPU/GLES/*.h \
 	$$P/GPU/Software/*.h \

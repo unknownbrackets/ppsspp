@@ -36,6 +36,7 @@
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/GLES/FragmentTestCache.h"
 
 static const GLushort aLookup[11] = {
 	GL_DST_COLOR,
