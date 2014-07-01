@@ -1712,6 +1712,18 @@ static void __ReportThreadQueueEmpty() {
 	WARN_LOG(SCEKERNEL, "Failed to reschedule: idle1 -> %s", idleDescription1);
 }
 
+bool __KernelTerminateModuleThreadsIterator(Thread *t, SceUID moduleID) {
+	if (t->moduleId == moduleID) {
+		WARN_LOG_REPORT(SCEKERNEL, "Terminating leftover thread %d/%s from module %d", t->GetUID(), t->GetName(), moduleID);
+		__KernelDeleteThread(t->GetUID(), SCE_KERNEL_ERROR_THREAD_TERMINATED, "module unloaded");
+	}
+	return true;
+}
+
+void __KernelTerminateModuleThreads(SceUID moduleID) {
+	kernelObjects.Iterate(&__KernelTerminateModuleThreadsIterator, moduleID);
+}
+
 // Returns NULL if the current thread is fine.
 static Thread *__KernelNextThread() {
 	SceUID bestThread;

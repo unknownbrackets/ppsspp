@@ -809,6 +809,7 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 void Module::Cleanup() {
 	MIPSAnalyst::ForgetFunctions(textStart, textEnd);
 
+	__KernelTerminateModuleThreads(GetUID());
 	loadedModules.erase(GetUID());
 
 	for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it) {

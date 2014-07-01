@@ -322,6 +322,7 @@ struct DebugThreadInfo
 std::vector<DebugThreadInfo> GetThreadsInfo();
 DebugInterface *KernelDebugThread(SceUID threadID);
 void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus);
+void __KernelTerminateModuleThreads(SceUID moduleID);
 
 int LoadExecForUser_362A956B();
 int sceKernelRegisterExitCallback(SceUID cbId);
