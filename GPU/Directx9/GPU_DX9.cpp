@@ -164,6 +164,9 @@ static NVIDIAGeneration NVIDIAGetDeviceGeneration(int deviceID) {
 void GPU_DX9::CheckGPUFeatures() {
 	u32 features = 0;
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	if (DX9::pD3DdeviceEx) {
+		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+	}
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;

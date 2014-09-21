@@ -149,7 +149,15 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	WRITE(p, "};\n");
 
 	if (lang == HLSL_DX9) {
-		WRITE(p, "float4 main( PS_IN In ) : COLOR {\n");
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "struct PS_OUT {\n");
+			WRITE(p, "  float4 color0 : COLOR0;\n");
+			WRITE(p, "  float4 color1 : COLOR1;\n");
+			WRITE(p, "};\n");
+			WRITE(p, "PS_OUT main( PS_IN In ) {\n");
+		} else {
+			WRITE(p, "float4 main( PS_IN In ) : COLOR {\n");
+		}
 	} else {
 		WRITE(p, "struct PS_OUT {\n");
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
@@ -479,16 +487,6 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		}
 	}
 
-	switch (stencilToAlpha) {
-	case REPLACE_ALPHA_YES:
-		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
-		break;
-
-	case REPLACE_ALPHA_NO:
-		// Do nothing, v is already fine.
-		break;
-	}
-
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
@@ -519,6 +517,18 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		WRITE(p, "  outfragment.depth = z;\n");
 	}
 
+	switch (stencilToAlpha) {
+	case REPLACE_ALPHA_YES:
+		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
+		WRITE(p, "  return v;\n");
+		break;
+
+	case REPLACE_ALPHA_NO:
+		// Do nothing, v is already fine.
+		WRITE(p, "  return v;\n");
+		break;
+	}
+
 	if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 			WRITE(p, "  outfragment.target = float4(v.rgb, %s);\n", replacedAlpha.c_str());
@@ -530,8 +540,16 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			WRITE(p, "  return outfragment;\n");
 		}
 	} else {
-		WRITE(p, "  return v;\n");
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "  PS_OUT Out;\n");
+			WRITE(p, "  Out.color0 = float4(v.rgb, %s);\n", replacedAlpha.c_str());
+			WRITE(p, "  Out.color1 = float4(v.a, v.a, v.a, v.a);\n");
+			WRITE(p, "  return Out;\n");
+		} else {
+			WRITE(p, "  return v;\n");
+		}
 	}
+
 	WRITE(p, "}\n");
 	return true;
 }
