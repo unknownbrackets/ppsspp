@@ -255,6 +255,11 @@ if(NOT MSVC)
 		add_definitions(-msse2)
 	endif()
 
+	if (MIPS AND _ARCH_32)
+		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=mips32r2")
+		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=mips32r2")
+	endif()
+
 	if (BLACKBERRY AND ARM)
 		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
@@ -1178,6 +1183,8 @@ elseif(X86)
 		ext/disarm.cpp)
 elseif(MIPS)
 	set(CoreExtra ${CoreExtra}
+		Core/MIPS/MIPS/MipsAsm.cpp
+		Core/MIPS/MIPS/MipsAsm.h
 		Core/MIPS/MIPS/MipsJit.cpp
 		Core/MIPS/MIPS/MipsJit.h
 		GPU/Common/VertexDecoderFake.cpp

@@ -27,7 +27,7 @@
 #include "Core/MIPS/MIPS/MipsJit.h"
 #include "Core/MIPS/MIPS/MipsAsm.h"
 
-using namespace MipsGen;
+using namespace MIPSGen;
 
 static const bool enableDebug = false;
 
@@ -57,7 +57,7 @@ void ShowPC(u32 sp) {
 
 namespace MIPSComp {
 
-/*void Jit::GenerateFixedCode()
+void Jit::GenerateFixedCode()
 {
 	enterCode = AlignCode16();
 
@@ -85,7 +85,7 @@ namespace MIPSComp {
 
 		// The result of slice decrementation should be in flags if somebody jumped here
 		// IMPORTANT - We jump on negative, not carry!!!
-		FixupBranch bailCoreState = BLTZ();
+		FixupBranch bailCoreState = BLTZ(DOWNCOUNTREG);
 		NOP(); // Delay
 
 		MOVI2R(R_AT, (u32)&coreState);
@@ -104,7 +104,8 @@ namespace MIPSComp {
 
 			// The result of slice decrementation should be in flags if somebody jumped here
 			// IMPORTANT - We jump on negative, not carry!!!
-			FixupBranch bail = BLTZ();
+			FixupBranch bail = BLTZ(DOWNCOUNTREG);
+			NOP(); // Delay
 
 			SetJumpTarget(skipToRealDispatch);
 			SetJumpTarget(skipToRealDispatch2);
@@ -115,12 +116,14 @@ namespace MIPSComp {
 			SaveDowncount();
 			LW(R_AT, CTXREG, offsetof(MIPSState, pc));
 			LW(R_AT, BASEREG, R_AT);
-			ANDI(V0, R_AT, 0xFF00);
+			MOVI2R(V0, MIPS_JITBLOCK_MASK);
+			ANDI(V0, R_AT, V0);
 			MOVI2R(R_AT, MIPS_EMUHACK_OPCODE);
 			FixupBranch notfound = BNE(V0, R_AT);
+			NOP(); // Delay
 			
 			RestoreRoundingMode(true);
-			QuickCallFunction(R2, (void *)&JitAt);
+			QuickCallFunction(V1, (void *)&JitAt);
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 
@@ -145,6 +148,6 @@ namespace MIPSComp {
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();
-}*/
+}
 
 }  // namespace MIPSComp

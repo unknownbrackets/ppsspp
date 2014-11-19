@@ -93,7 +93,7 @@ void MipsJit::ClearCache()
 {
 	blocks.Clear();
 	ClearCodeSpace();
-	//GenerateFixedCode();
+	GenerateFixedCode();
 }
 
 void MipsJit::InvalidateCache()

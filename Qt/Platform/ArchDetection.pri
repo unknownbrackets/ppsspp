@@ -30,12 +30,14 @@ contains(QT_ARCH, ".*86.*")|contains(QMAKE_TARGET.arch, ".*86.*") {
 		QMAKE_ALLFLAGS_DEBUG += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize
 		QMAKE_ALLFLAGS_RELEASE += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize
 	}
-	# TODO: aarch32/64?
+	# TODO: aarch32/64/mips64?
 } else:contains(QT_ARCH, ".*mips.*") {
 	DEFINES += MIPS
 	CONFIG += mips
 	PLATFORM_ARCH="mips32"
 	DEFINES += _ARCH_32
+	QMAKE_ALLFLAGS_DEBUG += -march=mips32r2
+	QMAKE_ALLFLAGS_RELEASE += -march=mips32r2
 } else {
 	# Generic
 	warning("You are using an untested arch: $${QT_ARCH}. Only x86 and ARM CPUs are supported")
