@@ -34,6 +34,8 @@
 #include "Core/MIPS/IR.h"
 
 class PointerWrap;
+struct ReplacementTableEntry;
+
 
 namespace MIPSComp {
 
@@ -178,6 +180,7 @@ public:
 
 private:
 	void GenerateFixedCode(JitOptions &jo);
+	void ExtractIR(u32 address, IRBlock *block);
 	void GetStateAndFlushAll(RegCacheState &state);
 	void RestoreState(const RegCacheState& state);
 	void FlushAll();
