@@ -75,21 +75,25 @@ namespace MIPSComp {
 		SaveDowncount();
 		RestoreRoundingMode(true);
 		QuickCallFunction(R_AT, &CoreTiming::Advance);
+		NOP(); // Delay
 		ApplyRoundingMode(true);
 		RestoreDowncount();
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
+		NOP(); // Delay
 
 		dispatcherCheckCoreState = GetCodePtr();
 
 		// The result of slice decrementation should be in flags if somebody jumped here
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = BLTZ();
+		NOP(); // Delay
 
 		MOVI2R(R_AT, (u32)&coreState);
 		LW(R_AT, R_AT, 0);
 		FixupBranch badCoreState = BNE(R_AT, R_ZERO);
-		NOP();
+		NOP(); // Delay
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
+		NOP(); // Delay
 
 		dispatcherPCInR0 = GetCodePtr();
 		// TODO: Do we always need to write PC to RAM here?
@@ -121,6 +125,7 @@ namespace MIPSComp {
 			RestoreDowncount();
 
 			B(dispatcherNoCheck); // no point in special casing this
+			NOP(); // Delay
 
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
@@ -128,6 +133,7 @@ namespace MIPSComp {
 		MOVI2R(R_AT, (u32)&coreState);
 		LW(R_AT, R_AT, 0);
 		BEQ(R_AT, R_ZERO, outerLoop);
+		NOP(); // Delay
 
 	SetJumpTarget(badCoreState);
 	breakpointBailout = GetCodePtr();
@@ -135,6 +141,7 @@ namespace MIPSComp {
 	SaveDowncount();
 	RestoreRoundingMode(true);
 	JRRA();
+	NOP(); // Delay
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();
