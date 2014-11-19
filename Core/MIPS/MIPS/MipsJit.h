@@ -29,6 +29,12 @@ using namespace MIPSGen;
 #include "stddef.h"
 #endif
 
+// RegCache
+#define BASEREG S7
+#define CTXREG S6
+#define CODEREG S5
+#define DOWNCOUNTREG S4
+
 namespace MIPSComp
 {
 
