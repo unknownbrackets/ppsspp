@@ -33,6 +33,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
+#include "Core/MIPS/IR.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -575,20 +576,29 @@ void JitCompareScreen::CreateViews() {
 	
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
+	((LinearLayout *)root_)->SetSpacing(0.0f);
+
 	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
-	ScrollView *midColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
-	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
-	midColumn->SetTag("JitCompareLeftDisasm");
+	midColumnScroll_ = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	LinearLayout *midColumn = midColumnScroll_->Add(new LinearLayout(ORIENT_VERTICAL));
+	midColumnScroll_->SetTag("JitCompareLeftDisasm");
 	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	leftDisasm_->SetSpacing(0.0f);
 
-	ScrollView *rightColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
-	rightColumnScroll->SetTag("JitCompareRightDisasm");
+	rightColumnScroll_ = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	rightColumnScroll_->SetTag("JitCompareRightDisasm");
 	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_->SetSpacing(0.0f);
+
+	irColumnScroll_ = root_->Add(new ScrollView(ORIENT_VERTICAL,  new LinearLayoutParams(4.0f)));
+	irColumnScroll_->SetTag("JitCompareRightIR");
+	LinearLayout *irColumn = irColumnScroll_->Add(new LinearLayout(ORIENT_VERTICAL));
+	irDisasm_ = irColumn->Add(new LinearLayout(ORIENT_VERTICAL));
+	irColumnScroll_->SetVisibility(V_GONE);
+	irDisasm_->SetSpacing(0.0f);
 
 	leftColumn->Add(new Choice(dev->T("Current")))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
 	leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
@@ -598,6 +608,7 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice(dev->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
 	leftColumn->Add(new Choice(dev->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
+	leftColumn->Add(new Choice(dev->T("Show IR")))->OnClick.Handle(this, &JitCompareScreen::OnShowIR);
 	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView(dev->T("No block")));
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -611,6 +622,7 @@ void JitCompareScreen::CreateViews() {
 void JitCompareScreen::UpdateDisasm() {
 	leftDisasm_->Clear();
 	rightDisasm_->Clear();
+	irDisasm_->Clear();
 
 	using namespace UI;
 
@@ -625,6 +637,7 @@ void JitCompareScreen::UpdateDisasm() {
 	if (currentBlock_ < 0 || currentBlock_ >= blockCache->GetNumBlocks()) {
 		leftDisasm_->Add(new TextView(dev->T("No block")));
 		rightDisasm_->Add(new TextView(dev->T("No block")));
+		irDisasm_->Add(new TextView(dev->T("No block")));
 		blockStats_->SetText("");
 		return;
 	}
@@ -656,6 +669,15 @@ void JitCompareScreen::UpdateDisasm() {
 		rightDisasm_->Add(new TextView(targetDis[i]))->SetFocusable(true);
 	}
 #endif
+
+	if (showIR_) {
+		MIPSComp::IRBlock irblock;
+		MIPSComp::jit->ExtractIR(block->originalAddress, &irblock);
+		std::vector<std::string> irDis = irblock.ToStringVector();
+		for (size_t i = 0; i < irDis.size(); i++) {
+			irDisasm_->Add(new TextView(irDis[i]));
+		}
+	}
 
 	int numMips = leftDisasm_->GetNumSubviews();
 	int numHost = rightDisasm_->GetNumSubviews();
@@ -710,6 +732,16 @@ UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 	auto addressPrompt = new AddressPromptScreen(dev->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
 	screenManager()->push(addressPrompt);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnShowIR(UI::EventParams &e) {
+	using namespace UI;
+	showIR_ = !showIR_;
+	midColumnScroll_->SetVisibility(showIR_ ? V_GONE : V_VISIBLE);
+	rightColumnScroll_->SetVisibility(showIR_ ? V_GONE : V_VISIBLE);
+	irColumnScroll_->SetVisibility(showIR_ ? V_VISIBLE : V_GONE);
+	UpdateDisasm();
 	return UI::EVENT_DONE;
 }
 
