@@ -78,23 +78,18 @@ void Jit::GenerateFixedCode()
 		SaveDowncount();
 		RestoreRoundingMode(true);
 		QuickCallFunction(R_AT, &CoreTiming::Advance);
-		NOP(); // Delay
 		ApplyRoundingMode(true);
 		RestoreDowncount();
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
-		NOP(); // Delay
 
 		dispatcherCheckCoreState = GetCodePtr();
 
 		FixupBranch bailCoreState = BLTZ(DOWNCOUNTREG);
-		NOP(); // Delay
 
 		MOVI2R(R_AT, (u32)&coreState);
 		LW(R_AT, R_AT, 0);
 		FixupBranch badCoreState = BNE(R_AT, R_ZERO);
-		NOP(); // Delay
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
-		NOP(); // Delay
 
 		dispatcherPCInR0 = GetCodePtr();
 		// TODO: Do we always need to write PC to RAM here?
@@ -104,7 +99,6 @@ void Jit::GenerateFixedCode()
 		dispatcher = GetCodePtr();
 
 			FixupBranch bail = BLTZ(DOWNCOUNTREG);
-			NOP(); // Delay
 
 			SetJumpTarget(skipToRealDispatch);
 			SetJumpTarget(skipToRealDispatch2);
@@ -118,10 +112,9 @@ void Jit::GenerateFixedCode()
 			SRL(V0, R_AT, 24);
 			MOVI2R(V1, MIPS_EMUHACK_OPCODE >> 24);
 			FixupBranch notfound = BNE(V0, V1);
-			EXT(R_AT, R_AT, 0, 26); // In delay
-			ADDU(R_AT, R_AT, CODEREG);
-			JR(R_AT);
-			NOP();
+				EXT(R_AT, R_AT, 0, 24);
+				ADDU(R_AT, R_AT, CODEREG);
+				JR(R_AT);
 			SetJumpTarget(notfound);
 			
 			RestoreRoundingMode(true);
@@ -129,8 +122,7 @@ void Jit::GenerateFixedCode()
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 
-			B(dispatcherNoCheck); // no point in special casing this
-			NOP(); // Delay
+			J(dispatcherNoCheck); // no point in special casing this
 
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
@@ -138,7 +130,6 @@ void Jit::GenerateFixedCode()
 		MOVI2R(R_AT, (u32)&coreState);
 		LW(R_AT, R_AT, 0);
 		BEQ(R_AT, R_ZERO, outerLoop);
-		NOP(); // Delay
 
 	SetJumpTarget(badCoreState);
 	breakpointBailout = GetCodePtr();
@@ -154,7 +145,6 @@ void Jit::GenerateFixedCode()
 	ADDIU(R_SP, R_SP, 9 * sizeof(u32));
 
 	JRRA();
-	NOP(); // Delay
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();
