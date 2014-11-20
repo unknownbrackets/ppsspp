@@ -39,17 +39,16 @@ void DisassembleMIPS(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-MipsJit::MipsJit(MIPSState *mips) : blocks(mips, this), mips_(mips)
-{ 
+MipsJit::MipsJit(MIPSState *mips) : blocks(mips, this), mips_(mips) {
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();
 	AllocCodeSpace(1024 * 1024 * 16);
+	GenerateFixedCode();
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
 
-void MipsJit::DoState(PointerWrap &p)
-{
+void MipsJit::DoState(PointerWrap &p) {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
@@ -64,8 +63,7 @@ void MipsJit::DoState(PointerWrap &p)
 }
 
 // This is here so the savestate matches between jit and non-jit.
-void MipsJit::DoDummyState(PointerWrap &p)
-{
+void MipsJit::DoDummyState(PointerWrap &p) {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
@@ -78,31 +76,26 @@ void MipsJit::DoDummyState(PointerWrap &p)
 	}
 }
 
-void MipsJit::FlushAll()
-{
+void MipsJit::FlushAll() {
 	//gpr.FlushAll();
 	//fpr.FlushAll();
 	FlushPrefixV();
 }
 
-void MipsJit::FlushPrefixV()
-{
+void MipsJit::FlushPrefixV() {
 }
 
-void MipsJit::ClearCache()
-{
+void MipsJit::ClearCache() {
 	blocks.Clear();
 	ClearCodeSpace();
 	GenerateFixedCode();
 }
 
-void MipsJit::InvalidateCache()
-{
+void MipsJit::InvalidateCache() {
 	blocks.Clear();
 }
 
-void MipsJit::InvalidateCacheAt(u32 em_address, int length)
-{
+void MipsJit::InvalidateCacheAt(u32 em_address, int length) {
 	blocks.InvalidateICache(em_address, length);
 }
 
@@ -120,8 +113,7 @@ void MipsJit::EatInstruction(MIPSOpcode op) {
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
-void MipsJit::CompileDelaySlot(int flags)
-{
+void MipsJit::CompileDelaySlot(int flags) {
 	js.inDelaySlot = true;
 	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
 	MIPSCompileOp(op, this);
@@ -158,14 +150,12 @@ void MipsJit::Compile(u32 em_address) {
 	}
 }
 
-void MipsJit::RunLoopUntil(u64 globalticks)
-{
+void MipsJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterCode)();
 }
 
-const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b)
-{
+const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
 	js.lastContinuedPC = 0;
@@ -195,6 +185,7 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b)
 			WriteExit(js.compilerPC, js.nextExit++);
 			js.compiling = false;
 		}
+		break; // Exit after first block
 	}
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
@@ -214,8 +205,7 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
-void MipsJit::AddContinuedBlock(u32 dest)
-{
+void MipsJit::AddContinuedBlock(u32 dest) {
 	// The first block is the root block.  When we continue, we create proxy blocks after that.
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
@@ -224,14 +214,12 @@ void MipsJit::AddContinuedBlock(u32 dest)
 	js.lastContinuedPC = dest;
 }
 
-bool MipsJit::DescribeCodePtr(const u8 *ptr, std::string &name)
-{
+bool MipsJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	// TODO: Not used by anything yet.
 	return false;
 }
 
-void MipsJit::Comp_RunBlock(MIPSOpcode op)
-{
+void MipsJit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
@@ -245,12 +233,10 @@ bool MipsJit::ReplaceJalTo(u32 dest) {
 	return false;
 }
 
-void MipsJit::Comp_ReplacementFunc(MIPSOpcode op)
-{
+void MipsJit::Comp_ReplacementFunc(MIPSOpcode op) {
 }
 
-void MipsJit::Comp_Generic(MIPSOpcode op)
-{
+void MipsJit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)
@@ -309,9 +295,8 @@ void MipsJit::ApplyRoundingMode(bool force) {
 void MipsJit::UpdateRoundingMode() {
 }
 
-void MipsJit::WriteExit(u32 destination, int exit_num)
-{
-	//WriteDownCount();
+void MipsJit::WriteExit(u32 destination, int exit_num) {
+	WriteDownCount();
 	JitBlock *b = js.curBlock;
 	b->exitAddress[exit_num] = destination;
 	b->exitPtrs[exit_num] = GetWritableCodePtr();
@@ -330,8 +315,7 @@ void MipsJit::WriteExit(u32 destination, int exit_num)
 	}
 }
 
-void MipsJit::WriteExitDestInR(MIPSReg Reg)
-{
+void MipsJit::WriteExitDestInR(MIPSReg Reg) {
 	MovToPC(Reg);
 	WriteDownCount();
 	// TODO: shouldn't need an indirect branch here...
@@ -339,8 +323,7 @@ void MipsJit::WriteExitDestInR(MIPSReg Reg)
 	NOP(); // Delay
 }
 
-void MipsJit::WriteSyscallExit()
-{
+void MipsJit::WriteSyscallExit() {
 	WriteDownCount();
 	J((const void *)dispatcherCheckCoreState);
 	NOP(); // Delay

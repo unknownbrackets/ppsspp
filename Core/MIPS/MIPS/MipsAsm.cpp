@@ -51,10 +51,6 @@ void ShowPC(u32 sp) {
 	}
 }
 
-// PLAN: no more block numbers - crazy opcodes just contain offset within
-// dynarec buffer
-// At this offset - 4, there is an int specifying the block number.
-
 namespace MIPSComp {
 
 void Jit::GenerateFixedCode()
@@ -62,6 +58,13 @@ void Jit::GenerateFixedCode()
 	enterCode = AlignCode16();
 
 	DEBUG_LOG(JIT, "Base: %08x", (u32)Memory::base);
+
+	// Subtract
+	ADDIU(R_SP, R_SP, -9 * 4);
+	for (int i = 0; i < 8; ++i) {
+		SW(MIPSReg(S0 + i), R_SP, i * sizeof(u32));
+	}
+	SW(R_RA, R_SP, 8 * sizeof(u32));
 
 	MOVI2R(BASEREG, (u32)Memory::base);
 	MOVI2R(CTXREG, (u32)mips_);
@@ -83,8 +86,6 @@ void Jit::GenerateFixedCode()
 
 		dispatcherCheckCoreState = GetCodePtr();
 
-		// The result of slice decrementation should be in flags if somebody jumped here
-		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = BLTZ(DOWNCOUNTREG);
 		NOP(); // Delay
 
@@ -102,8 +103,6 @@ void Jit::GenerateFixedCode()
 		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
 		dispatcher = GetCodePtr();
 
-			// The result of slice decrementation should be in flags if somebody jumped here
-			// IMPORTANT - We jump on negative, not carry!!!
 			FixupBranch bail = BLTZ(DOWNCOUNTREG);
 			NOP(); // Delay
 
@@ -116,11 +115,14 @@ void Jit::GenerateFixedCode()
 			SaveDowncount();
 			LW(R_AT, CTXREG, offsetof(MIPSState, pc));
 			LW(R_AT, BASEREG, R_AT);
-			MOVI2R(V0, MIPS_JITBLOCK_MASK);
-			ANDI(V0, R_AT, V0);
-			MOVI2R(R_AT, MIPS_EMUHACK_OPCODE);
-			FixupBranch notfound = BNE(V0, R_AT);
-			NOP(); // Delay
+			SRL(V0, R_AT, 24);
+			MOVI2R(V1, MIPS_EMUHACK_OPCODE >> 24);
+			FixupBranch notfound = BNE(V0, V1);
+			EXT(R_AT, R_AT, 0, 26); // In delay
+			ADDU(R_AT, R_AT, CODEREG);
+			JR(R_AT);
+			NOP();
+			SetJumpTarget(notfound);
 			
 			RestoreRoundingMode(true);
 			QuickCallFunction(V1, (void *)&JitAt);
@@ -143,6 +145,14 @@ void Jit::GenerateFixedCode()
 
 	SaveDowncount();
 	RestoreRoundingMode(true);
+
+	for (int i = 0; i < 8; ++i) {
+		LW(MIPSReg(S0 + i), R_SP, i * sizeof(u32));
+	}
+	LW(R_RA, R_SP, 8 * sizeof(u32));
+	// Positive.
+	ADDIU(R_SP, R_SP, 9 * sizeof(u32));
+
 	JRRA();
 	NOP(); // Delay
 
