@@ -105,8 +105,6 @@ void Jit::GenerateFixedCode()
 
 			dispatcherNoCheck = GetCodePtr();
 
-			// No block found, let's jit
-			SaveDowncount();
 			LW(R_AT, CTXREG, offsetof(MIPSState, pc));
 			LW(R_AT, BASEREG, R_AT);
 			SRL(V0, R_AT, 24);
@@ -117,6 +115,8 @@ void Jit::GenerateFixedCode()
 				JR(R_AT);
 			SetJumpTarget(notfound);
 			
+			// No block found, let's jit
+			SaveDowncount();
 			RestoreRoundingMode(true);
 			QuickCallFunction(V1, (void *)&JitAt);
 			ApplyRoundingMode(true);

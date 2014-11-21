@@ -83,6 +83,23 @@ void MipsJit::FlushAll() {
 }
 
 void MipsJit::FlushPrefixV() {
+	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(V0, js.prefixS);
+		SW(V0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
+		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(V0, js.prefixT);
+		SW(V0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
+		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(V0, js.prefixD);
+		SW(V0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
+		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
+	}
 }
 
 void MipsJit::ClearCache() {
@@ -133,21 +150,6 @@ void MipsJit::Compile(u32 em_address) {
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
-
-	bool cleanSlate = false;
-
-	if (js.hasSetRounding && !js.lastSetRounding) {
-		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
-		// Won't loop, since hasSetRounding is only ever set to 1.
-		js.lastSetRounding = js.hasSetRounding;
-		cleanSlate = true;
-	}
-
-	if (cleanSlate) {
-		// Our assumptions are all wrong so it's clean-slate time.
-		ClearCache();
-		Compile(em_address);
-	}
 }
 
 void MipsJit::RunLoopUntil(u64 globalticks) {
@@ -167,6 +169,12 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b) {
 	js.inDelaySlot = false;
 	js.PrefixStart();
 	b->normalEntry = GetCodePtr();
+	// Check downcount
+	FixupBranch noskip = BLTZ(DOWNCOUNTREG);
+	MOVI2R(R_AT, js.blockStart);
+	J((const void *)outerLoopPCInR0);
+	SetJumpTarget(noskip);
+
 	js.numInstructions = 0;
 	while (js.compiling)
 	{
@@ -222,6 +230,23 @@ bool MipsJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 void MipsJit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+}
+
+void MipsJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	MIPSEmitter emit(exitPoint);
+	emit.J(checkedEntry);
+	emit.FlushIcache();
+}
+
+void MipsJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+	// Send anyone who tries to run this block back to the dispatcher.
+	// Not entirely ideal, but .. pretty good.
+	// Spurious entrances from previously linked blocks can only come through checkedEntry
+	MIPSEmitter emit(checkedEntry);
+	emit.MOVI2R(R_AT, originalAddress);
+	emit.SW(R_AT, CTXREG, offsetof(MIPSState, pc));
+	emit.J(dispatcher);
+	emit.FlushIcache();
 }
 
 bool MipsJit::ReplaceJalTo(u32 dest) {

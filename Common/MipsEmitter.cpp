@@ -51,7 +51,6 @@ const u8 *MIPSEmitter::AlignCode16() {
 }
 
 const u8 *MIPSEmitter::AlignCodePage() {
-	// TODO: Assuming code pages ought to be 4K?
 	ReserveCodeSpace((-(intptr_t)code_) & 4095);
 	return code_;
 }
