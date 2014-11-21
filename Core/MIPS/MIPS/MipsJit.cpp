@@ -260,6 +260,64 @@ bool MipsJit::ReplaceJalTo(u32 dest) {
 }
 
 void MipsJit::Comp_ReplacementFunc(MIPSOpcode op) {
+	// We get here if we execute the first instruction of a replaced function. This means
+	// that we do need to return to RA.
+
+	// Inlined function calls (caught in jal) are handled differently.
+
+	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+
+	const ReplacementTableEntry *entry = GetReplacementFunc(index);
+	if (!entry) {
+		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
+		return;
+	}
+
+	if (entry->flags & REPFLAG_DISABLED) {
+		MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+	} else if (entry->jitReplaceFunc) {
+		MIPSReplaceFunc repl = entry->jitReplaceFunc;
+		int cycles = (this->*repl)();
+
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			FlushAll();
+			LW(R_AT, CTXREG, MIPS_REG_RA * 4);
+			js.downcountAmount += cycles;
+			WriteExitDestInR(R_AT);
+			js.compiling = false;
+		}
+	} else if (entry->replaceFunc) {
+		FlushAll();
+		RestoreRoundingMode();
+		MOVI2R(R_AT, js.compilerPC);
+		MovToPC(R_AT);
+
+		// Standard function call, nothing fancy.
+		// The function returns the number of cycles it took in EAX.
+		if (JInRange((const void *)(entry->replaceFunc))) {
+			J((const void *)(entry->replaceFunc));
+		} else {
+			MOVI2R(R_AT, (u32)entry->replaceFunc);
+			JR(R_AT);
+		}
+
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			ApplyRoundingMode();
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			ApplyRoundingMode();
+			LW(R_AT, CTXREG, MIPS_REG_RA * 4);
+			WriteDownCountR(V0);
+			WriteExitDestInR(R_AT);
+			js.compiling = false;
+		}
+	} else {
+		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
+	}
 }
 
 void MipsJit::Comp_Generic(MIPSOpcode op) {

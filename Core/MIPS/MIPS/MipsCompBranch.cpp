@@ -183,6 +183,122 @@ void Jit::Comp_RelBranchRI(MIPSOpcode op) {
 	js.compiling = false;
 }
 
+void Jit::Comp_FPUBranch(MIPSOpcode op) {
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		return;
+	}
+	int offset = _IMM16 << 2;
+	u32 targetAddr = js.compilerPC + offset + 4;
+
+	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	bool delaySlotIsNice = IsDelaySlotNiceFPU(op, delaySlotOp);
+
+	int type = (op >> 16) & 0x1f;
+
+	bool equalTest = (type == 1) || (type == 3);
+	// If likely is set, discard the branch slot if NOT taken.
+	bool likely = (type == 2) || (type == 3);
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
+
+	LW(V0, CTXREG, 4 * MIPS_REG_FPCOND);
+
+	MIPSGen::FixupBranch ptr;
+	if (!likely)
+	{
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		else
+			FlushAll();
+		if (equalTest)
+			ptr = BNEZ(V0); // v0 == 1 or v0 != 0
+		else
+			ptr = BEQZ(V0); // v0 != 1 or v0 == 0
+	}
+	else
+	{
+		FlushAll();
+		if (equalTest)
+			ptr = BNEZ(V0);
+		else
+			ptr = BEQZ(V0);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
+	}
+
+	// Take the branch
+	WriteExit(targetAddr, js.nextExit++);
+
+	SetJumpTarget(ptr);
+	// Not taken
+	WriteExit(js.compilerPC + 8, js.nextExit++);
+	js.compiling = false;
+}
+
+void Jit::Comp_VBranch(MIPSOpcode op) {
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		return;
+	}
+	int offset = _IMM16 << 2;
+	u32 targetAddr = js.compilerPC + offset + 4;
+
+	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+
+	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
+	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
+	// However, it does consistently try each branch, which these games seem to expect.
+	bool delaySlotIsBranch = MIPSCodeUtils::IsVFPUBranch(delaySlotOp);
+	bool delaySlotIsNice = !delaySlotIsBranch && IsDelaySlotNiceVFPU(op, delaySlotOp);
+
+	int type = (op >> 16) & 3;
+	bool equalTest = (type == 1) || (type == 3);
+	bool likely = (type == 2) || (type == 3);
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
+	if (delaySlotIsBranch && (signed short)(delaySlotOp & 0xFFFF) != (signed short)(op & 0xFFFF) - 1)
+		ERROR_LOG_REPORT(JIT, "VFPU branch in VFPU delay slot at %08x with different target", js.compilerPC);
+
+	int imm3 = (op >> 18) & 7;
+
+	LW(V0, CTXREG, 4 * MIPS_REG_VFPUCC);
+	MOVI2R(V1, 1 << imm3);
+
+	MIPSGen::FixupBranch ptr;
+	js.inDelaySlot = true;
+	if (!likely)
+	{
+		if (!delaySlotIsNice && !delaySlotIsBranch)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		else
+			FlushAll();
+		if (equalTest)
+			ptr = BEQ(V0, V1);
+		else
+			ptr = BNE(V0, V1);
+	}
+	else
+	{
+		FlushAll();
+		if (equalTest)
+			ptr = BEQ(V0, V1);
+		else
+			ptr = BNE(V0, V1);
+		if (!delaySlotIsBranch)
+			CompileDelaySlot(DELAYSLOT_FLUSH);
+	}
+	js.inDelaySlot = false;
+
+	// Take the branch
+	WriteExit(targetAddr, js.nextExit++);
+
+	SetJumpTarget(ptr);
+	// Not taken
+	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
+	WriteExit(notTakenTarget, js.nextExit++);
+	js.compiling = false;
+}
+
 void Jit::Comp_Jump(MIPSOpcode op) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
