@@ -77,9 +77,9 @@ public:
 	void Comp_FPUBranch(MIPSOpcode op) override { DISABLE; }
 	void Comp_FPULS(MIPSOpcode op) override { DISABLE; }
 	void Comp_FPUComp(MIPSOpcode op) override { DISABLE; }
-	void Comp_Jump(MIPSOpcode op) override {DISABLE; }
-	void Comp_JumpReg(MIPSOpcode op) override { DISABLE; }
-	void Comp_Syscall(MIPSOpcode op) override { DISABLE; }
+	void Comp_Jump(MIPSOpcode op) override;
+	void Comp_JumpReg(MIPSOpcode op) override;
+	void Comp_Syscall(MIPSOpcode op) override;
 	void Comp_Break(MIPSOpcode op) override { DISABLE; }
 
 	void Comp_IType(MIPSOpcode op) override { DISABLE; }

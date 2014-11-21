@@ -183,4 +183,154 @@ void Jit::Comp_RelBranchRI(MIPSOpcode op) {
 	js.compiling = false;
 }
 
+void Jit::Comp_Jump(MIPSOpcode op) {
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		return;
+	}
+	u32 off = _IMM26 << 2;
+	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
+
+	// Might be a stubbed address or something?
+	if (!Memory::IsValidAddress(targetAddr)) {
+		if (js.nextExit == 0) {
+			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
+		} else {
+			js.compiling = false;
+		}
+		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
+		return;
+	}
+
+	switch (op >> 26) {
+	case 2: //j
+		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {
+			AddContinuedBlock(targetAddr);
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
+		FlushAll();
+		WriteExit(targetAddr, js.nextExit++);
+		break;
+
+	case 3: //jal
+		if (ReplaceJalTo(targetAddr))
+			return;
+
+		MOVI2R(V0, js.compilerPC + 8);
+		SW(V0, CTXREG, MIPS_REG_RA * 4);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {
+			AddContinuedBlock(targetAddr);
+			// Account for the increment in the loop.
+			js.compilerPC = targetAddr - 4;
+			// In case the delay slot was a break or something.
+			js.compiling = true;
+			return;
+		}
+		FlushAll();
+		WriteExit(targetAddr, js.nextExit++);
+		break;
+
+	default:
+		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		break;
+	}
+	js.compiling = false;
+}
+
+void Jit::Comp_JumpReg(MIPSOpcode op) {
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		return;
+	}
+	MIPSGPReg rs = _RS;
+	MIPSGPReg rd = _RD;
+	bool andLink = (op & 0x3f) == 9;
+
+	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	if (andLink && rs == rd)
+		delaySlotIsNice = false;
+
+	MIPSReg destReg = V1;
+	if (IsSyscall(delaySlotOp)) {
+		LW(V0, CTXREG, 4 * _RS);
+		MovToPC(V0);  // For syscall to be able to return.
+		if (andLink) {
+			MOVI2R(V0, js.compilerPC + 8);
+			SW(V0, CTXREG, _RD * 4);
+		}
+		CompileDelaySlot(DELAYSLOT_FLUSH);
+		return;  // Syscall wrote exit code.
+	} else if (delaySlotIsNice) {
+		if (andLink) {
+			MOVI2R(V0, js.compilerPC + 8);
+			SW(V0, CTXREG, _RD * 4);
+		}
+		CompileDelaySlot(DELAYSLOT_NICE);
+
+		LW(V0, CTXREG, 4 * _RS);
+		destReg = V0;
+		FlushAll();
+	} else {
+		LW(V1, CTXREG, 4 * _RS);
+		if (andLink) {
+			MOVI2R(V0, js.compilerPC + 8);
+			SW(V0, CTXREG, _RD * 4);
+		}
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+	}
+
+	switch (op & 0x3f)
+	{
+	case 8: //jr
+		break;
+	case 9: //jalr
+		break;
+	default:
+		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		break;
+	}
+
+	WriteExitDestInR(destReg);
+	js.compiling = false;
+}
+
+void Jit::Comp_Syscall(MIPSOpcode op) {
+	// If we're in a delay slot, this is off by one.
+	const int offset = js.inDelaySlot ? -1 : 0;
+	WriteDownCount(offset);
+	RestoreRoundingMode();
+	js.downcountAmount = -offset;
+
+	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
+	FlushAll();
+
+	SaveDowncount();
+	// Skip the CallSyscall where possible.
+	void *quickFunc = GetQuickSyscallFunc(op);
+	if (quickFunc)
+	{
+		MOVI2R(R_AT, (u32)(intptr_t)GetSyscallInfo(op));
+		// Already flushed, so R1 is safe.
+		QuickCallFunction(V0, quickFunc);
+	}
+	else
+	{
+		MOVI2R(R_AT, op.encoding);
+		QuickCallFunction(V0, (void *)&CallSyscall);
+	}
+	ApplyRoundingMode();
+	RestoreDowncount();
+
+	WriteSyscallExit();
+	js.compiling = false;
+}
+
 }
