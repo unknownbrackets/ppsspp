@@ -168,12 +168,14 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b) {
 	js.compiling = true;
 	js.inDelaySlot = false;
 	js.PrefixStart();
-	b->normalEntry = GetCodePtr();
+	b->checkedEntry = GetCodePtr();
 	// Check downcount
-	FixupBranch noskip = BLTZ(DOWNCOUNTREG);
+	FixupBranch noskip = BGEZ(DOWNCOUNTREG);
 	MOVI2R(R_AT, js.blockStart);
-	J((const void *)outerLoopPCInR0);
+	J((const void *)outerLoopPCInAT);
 	SetJumpTarget(noskip);
+
+	b->normalEntry = GetCodePtr();
 
 	js.numInstructions = 0;
 	while (js.compiling)
@@ -332,7 +334,7 @@ void MipsJit::WriteExit(u32 destination, int exit_num) {
 		b->linkStatus[exit_num] = true;
 	} else {
 		MOVI2R(R_AT, destination);
-		J((const void *)dispatcherPCInR0);
+		J((const void *)dispatcherPCInAT);
 	}
 }
 

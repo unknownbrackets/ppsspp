@@ -72,7 +72,7 @@ void Jit::GenerateFixedCode()
 
 	RestoreDowncount();
 	MovFromPC(R_AT);
-	outerLoopPCInR0 = GetCodePtr();
+	outerLoopPCInAT = GetCodePtr();
 	MovToPC(R_AT);
 	outerLoop = GetCodePtr();
 		SaveDowncount();
@@ -91,7 +91,7 @@ void Jit::GenerateFixedCode()
 		FixupBranch badCoreState = BNE(R_AT, R_ZERO);
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
 
-		dispatcherPCInR0 = GetCodePtr();
+		dispatcherPCInAT = GetCodePtr();
 		// TODO: Do we always need to write PC to RAM here?
 		MovToPC(R_AT);
 
@@ -106,10 +106,12 @@ void Jit::GenerateFixedCode()
 			dispatcherNoCheck = GetCodePtr();
 
 			LW(R_AT, CTXREG, offsetof(MIPSState, pc));
-			LW(R_AT, BASEREG, R_AT);
+			ADDU(R_AT, BASEREG, R_AT);
+			LW(R_AT, R_AT, 0);
 			SRL(V0, R_AT, 24);
-			MOVI2R(V1, MIPS_EMUHACK_OPCODE >> 24);
-			FixupBranch notfound = BNE(V0, V1);
+			// Subtract
+			ADDIU(V0, V0, -(MIPS_EMUHACK_OPCODE >> 24));
+			FixupBranch notfound = BNEZ(V0);
 				EXT(R_AT, R_AT, 0, 24);
 				ADDU(R_AT, R_AT, CODEREG);
 				JR(R_AT);
@@ -122,7 +124,7 @@ void Jit::GenerateFixedCode()
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 
-			J(dispatcherNoCheck); // no point in special casing this
+			B(dispatcherNoCheck); // no point in special casing this
 
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);

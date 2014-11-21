@@ -437,9 +437,9 @@ void MIPSEmitter::INS(MIPSReg rt, MIPSReg rs, s8 pos, s8 size) {
 }
 
 void MIPSEmitter::EXT(MIPSReg rt, MIPSReg rs, s8 pos, s8 size) {
-	// 111111 sssss ttttt xxxxx yyyyy 000000
+	// 011111 sssss ttttt xxxxx yyyyy 000000
 	_dbg_assert_msg_(JIT, rt < F_BASE && rs < F_BASE && pos <= 0x1f && size >= 1, "Bad emitter arguments");
-	Write32Fields(26, 0x3f, 21, rt, 16, rs, 11, (size-1) & 0x1f, 6, pos & 0x1f, 0, 0x00);
+	Write32Fields(26, 0x1f, 21, rt, 16, rs, 11, (size-1) & 0x1f, 6, pos & 0x1f, 0, 0x00);
 }
 
 void MIPSEmitter::DSLL(MIPSReg rd, MIPSReg rt, u8 sa) {

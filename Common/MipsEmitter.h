@@ -254,10 +254,10 @@ protected:
 		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos4);
 	}
 	inline void Write32Fields(u8 pos1, u32 v1, u8 pos2, u32 v2, u8 pos3, u32 v3, u8 pos4, u32 v4, u8 pos5, u32 v5) {
-		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos5) | (v5 << pos5);
+		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos4) | (v5 << pos5);
 	}
 	inline void Write32Fields(u8 pos1, u32 v1, u8 pos2, u32 v2, u8 pos3, u32 v3, u8 pos4, u32 v4, u8 pos5, u32 v5, u8 pos6, u32 v6) {
-		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos5) | (v5 << pos5) | (v6 << pos6);
+		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos4) | (v5 << pos5) | (v6 << pos6);
 	}
 
 	static void SetJumpTarget(const FixupBranch &branch, const void *dst);

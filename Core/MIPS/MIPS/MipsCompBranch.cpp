@@ -317,13 +317,12 @@ void Jit::Comp_Syscall(MIPSOpcode op) {
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc)
 	{
-		MOVI2R(R_AT, (u32)(intptr_t)GetSyscallInfo(op));
-		// Already flushed, so R1 is safe.
+		MOVI2R(A0, (u32)(intptr_t)GetSyscallInfo(op));
 		QuickCallFunction(V0, quickFunc);
 	}
 	else
 	{
-		MOVI2R(R_AT, op.encoding);
+		MOVI2R(A0, op.encoding);
 		QuickCallFunction(V0, (void *)&CallSyscall);
 	}
 	ApplyRoundingMode();
