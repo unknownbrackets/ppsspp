@@ -150,7 +150,6 @@ void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 		WriteExit(GetCompilerPC() + 8, js.nextExit++);
 	}
 
-	js.compiling = false;
 }
 
 
@@ -199,8 +198,6 @@ void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool like
 	SetJumpTarget(ptr);
 	// Not taken
 	WriteExit(GetCompilerPC() + 8, js.nextExit++);
-
-	js.compiling = false;
 }
 
 
@@ -286,7 +283,6 @@ void ArmJit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely)
 	SetJumpTarget(ptr);
 	// Not taken
 	WriteExit(GetCompilerPC() + 8, js.nextExit++);
-	js.compiling = false;
 }
 
 void ArmJit::Comp_FPUBranch(MIPSOpcode op)
@@ -356,7 +352,6 @@ void ArmJit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely)
 	// Not taken
 	u32 notTakenTarget = GetCompilerPC() + (delaySlotIsBranch ? 4 : 8);
 	WriteExit(notTakenTarget, js.nextExit++);
-	js.compiling = false;
 }
 
 void ArmJit::Comp_VBranch(MIPSOpcode op)
@@ -382,8 +377,6 @@ void ArmJit::Comp_Jump(MIPSOpcode op) {
 	if (!Memory::IsValidAddress(targetAddr)) {
 		if (js.nextExit == 0) {
 			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
-		} else {
-			js.compiling = false;
 		}
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		return;
@@ -410,7 +403,6 @@ void ArmJit::Comp_Jump(MIPSOpcode op) {
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
 		break;
 	}
-	js.compiling = false;
 }
 
 void ArmJit::Comp_JumpReg(MIPSOpcode op)
@@ -478,7 +470,6 @@ void ArmJit::Comp_JumpReg(MIPSOpcode op)
 	}
 
 	WriteExitDestInR(destReg);
-	js.compiling = false;
 }
 
 	
@@ -532,14 +523,12 @@ void ArmJit::Comp_Syscall(MIPSOpcode op)
 	RestoreDowncount();
 
 	WriteSyscallExit();
-	js.compiling = false;
 }
 
 void ArmJit::Comp_Break(MIPSOpcode op)
 {
 	Comp_Generic(op);
 	WriteSyscallExit();
-	js.compiling = false;
 }
 
 }   // namespace Mipscomp
