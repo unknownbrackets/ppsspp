@@ -26,11 +26,14 @@ else:mips: {
 else {
 	SOURCES += $$P/Common/FakeCPUDetect.cpp
 }
-SOURCES += $$P/Common/ArmEmitter.cpp \
-	$$P/Common/MipsEmitter.cpp
-HEADERS += $$P/Common/ArmEmitter.h \
-	$$P/Common/MipsEmitter.h \
-	$$P/Common/CPUDetect.h
+arm|!mobile_platform {
+	SOURCES += $$P/Common/ArmEmitter.cpp
+	HEADERS += $$P/Common/ArmEmitter.h
+}
+mips|!mobile_platform {
+	SOURCES += $$P/Common/MipsEmitter.cpp
+	HEADERS += $$P/Common/MipsEmitter.h
+}
 
 win32 {
 	SOURCES += $$P/Common/stdafx.cpp

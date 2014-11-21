@@ -88,7 +88,7 @@ void Jit::GenerateFixedCode()
 
 		MOVI2R(R_AT, (u32)&coreState);
 		LW(R_AT, R_AT, 0);
-		FixupBranch badCoreState = BNE(R_AT, R_ZERO);
+		FixupBranch badCoreState = BNEZ(R_AT);
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
 
 		dispatcherPCInAT = GetCodePtr();
@@ -131,7 +131,7 @@ void Jit::GenerateFixedCode()
 
 		MOVI2R(R_AT, (u32)&coreState);
 		LW(R_AT, R_AT, 0);
-		BEQ(R_AT, R_ZERO, outerLoop);
+		BEQZ(R_AT, outerLoop);
 
 	SetJumpTarget(badCoreState);
 	breakpointBailout = GetCodePtr();
