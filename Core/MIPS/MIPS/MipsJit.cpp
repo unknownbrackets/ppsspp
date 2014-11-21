@@ -193,7 +193,6 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b) {
 			WriteExit(js.compilerPC, js.nextExit++);
 			js.compiling = false;
 		}
-		break; // Exit after first block
 	}
 
 	b->codeSize = GetCodePtr() - b->normalEntry;

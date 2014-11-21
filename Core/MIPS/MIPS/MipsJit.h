@@ -35,6 +35,8 @@ using namespace MIPSGen;
 #define CODEREG S5
 #define DOWNCOUNTREG S4
 
+#define DISABLE { Comp_Generic(op); return; }
+
 namespace MIPSComp
 {
 
@@ -66,74 +68,75 @@ public:
 	void Comp_ReplacementFunc(MIPSOpcode op) override;
 
 	// Ops
-	void Comp_ITypeMem(MIPSOpcode op) override {}
-	void Comp_Cache(MIPSOpcode op) override {}
+	void Comp_ITypeMem(MIPSOpcode op) override { DISABLE; }
+	void Comp_Cache(MIPSOpcode op) override { DISABLE; }
 
-	void Comp_RelBranch(MIPSOpcode op) override {}
-	void Comp_RelBranchRI(MIPSOpcode op) override {}
-	void Comp_FPUBranch(MIPSOpcode op) override {}
-	void Comp_FPULS(MIPSOpcode op) override {}
-	void Comp_FPUComp(MIPSOpcode op) override {}
-	void Comp_Jump(MIPSOpcode op) override {}
-	void Comp_JumpReg(MIPSOpcode op) override {}
-	void Comp_Syscall(MIPSOpcode op) override {}
-	void Comp_Break(MIPSOpcode op) override {}
+	MIPSGen::FixupBranch BranchTypeComp(int type, MIPSReg op1, MIPSReg op2);
+	void Comp_RelBranch(MIPSOpcode op) override;
+	void Comp_RelBranchRI(MIPSOpcode op) override;
+	void Comp_FPUBranch(MIPSOpcode op) override { DISABLE; }
+	void Comp_FPULS(MIPSOpcode op) override { DISABLE; }
+	void Comp_FPUComp(MIPSOpcode op) override { DISABLE; }
+	void Comp_Jump(MIPSOpcode op) override {DISABLE; }
+	void Comp_JumpReg(MIPSOpcode op) override { DISABLE; }
+	void Comp_Syscall(MIPSOpcode op) override { DISABLE; }
+	void Comp_Break(MIPSOpcode op) override { DISABLE; }
 
-	void Comp_IType(MIPSOpcode op) override {}
-	void Comp_RType2(MIPSOpcode op) override {}
-	void Comp_RType3(MIPSOpcode op) override {}
-	void Comp_ShiftType(MIPSOpcode op) override {}
-	void Comp_Allegrex(MIPSOpcode op) override {}
-	void Comp_Allegrex2(MIPSOpcode op) override {}
-	void Comp_VBranch(MIPSOpcode op) override {}
-	void Comp_MulDivType(MIPSOpcode op) override {}
-	void Comp_Special3(MIPSOpcode op) override {}
+	void Comp_IType(MIPSOpcode op) override { DISABLE; }
+	void Comp_RType2(MIPSOpcode op) override { DISABLE; }
+	void Comp_RType3(MIPSOpcode op) override { DISABLE; }
+	void Comp_ShiftType(MIPSOpcode op) override { DISABLE; }
+	void Comp_Allegrex(MIPSOpcode op) override { DISABLE; }
+	void Comp_Allegrex2(MIPSOpcode op) override { DISABLE; }
+	void Comp_VBranch(MIPSOpcode op) override { DISABLE; }
+	void Comp_MulDivType(MIPSOpcode op) override { DISABLE; }
+	void Comp_Special3(MIPSOpcode op) override { DISABLE; }
 
-	void Comp_FPU3op(MIPSOpcode op) override {}
-	void Comp_FPU2op(MIPSOpcode op) override {}
-	void Comp_mxc1(MIPSOpcode op) override {}
+	void Comp_FPU3op(MIPSOpcode op) override { DISABLE; }
+	void Comp_FPU2op(MIPSOpcode op) override { DISABLE; }
+	void Comp_mxc1(MIPSOpcode op) override { DISABLE; }
 
-	void Comp_DoNothing(MIPSOpcode op) override {}
+	void Comp_DoNothing(MIPSOpcode op) override { DISABLE; }
 
-	void Comp_SV(MIPSOpcode op) override {}
-	void Comp_SVQ(MIPSOpcode op) override {}
-	void Comp_VPFX(MIPSOpcode op) override {}
-	void Comp_VVectorInit(MIPSOpcode op) override {}
-	void Comp_VMatrixInit(MIPSOpcode op) override {}
-	void Comp_VDot(MIPSOpcode op) override {}
-	void Comp_VecDo3(MIPSOpcode op) override {}
-	void Comp_VV2Op(MIPSOpcode op) override {}
-	void Comp_Mftv(MIPSOpcode op) override {}
-	void Comp_Vmfvc(MIPSOpcode op) override {}
-	void Comp_Vmtvc(MIPSOpcode op) override {}
-	void Comp_Vmmov(MIPSOpcode op) override {}
-	void Comp_VScl(MIPSOpcode op) override {}
-	void Comp_Vmmul(MIPSOpcode op) override {}
-	void Comp_Vmscl(MIPSOpcode op) override {}
-	void Comp_Vtfm(MIPSOpcode op) override {}
-	void Comp_VHdp(MIPSOpcode op) override {}
-	void Comp_VCrs(MIPSOpcode op) override {}
-	void Comp_VDet(MIPSOpcode op) override {}
-	void Comp_Vi2x(MIPSOpcode op) override {}
-	void Comp_Vx2i(MIPSOpcode op) override {}
-	void Comp_Vf2i(MIPSOpcode op) override {}
-	void Comp_Vi2f(MIPSOpcode op) override {}
-	void Comp_Vh2f(MIPSOpcode op) override {}
-	void Comp_Vcst(MIPSOpcode op) override {}
-	void Comp_Vhoriz(MIPSOpcode op) override {}
-	void Comp_VRot(MIPSOpcode op) override {}
-	void Comp_VIdt(MIPSOpcode op) override {}
-	void Comp_Vcmp(MIPSOpcode op) override {}
-	void Comp_Vcmov(MIPSOpcode op) override {}
-	void Comp_Viim(MIPSOpcode op) override {}
-	void Comp_Vfim(MIPSOpcode op) override {}
-	void Comp_VCrossQuat(MIPSOpcode op) override {}
-	void Comp_Vsgn(MIPSOpcode op) override {}
-	void Comp_Vocp(MIPSOpcode op) override {}
-	void Comp_ColorConv(MIPSOpcode op) override {}
+	void Comp_SV(MIPSOpcode op) override { DISABLE; }
+	void Comp_SVQ(MIPSOpcode op) override { DISABLE; }
+	void Comp_VPFX(MIPSOpcode op) override { DISABLE; }
+	void Comp_VVectorInit(MIPSOpcode op) override { DISABLE; }
+	void Comp_VMatrixInit(MIPSOpcode op) override { DISABLE; }
+	void Comp_VDot(MIPSOpcode op) override { DISABLE; }
+	void Comp_VecDo3(MIPSOpcode op) override { DISABLE; }
+	void Comp_VV2Op(MIPSOpcode op) override { DISABLE; }
+	void Comp_Mftv(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vmfvc(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vmtvc(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vmmov(MIPSOpcode op) override { DISABLE; }
+	void Comp_VScl(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vmmul(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vmscl(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vtfm(MIPSOpcode op) override { DISABLE; }
+	void Comp_VHdp(MIPSOpcode op) override { DISABLE; }
+	void Comp_VCrs(MIPSOpcode op) override { DISABLE; }
+	void Comp_VDet(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vi2x(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vx2i(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vf2i(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vi2f(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vh2f(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vcst(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vhoriz(MIPSOpcode op) override { DISABLE; }
+	void Comp_VRot(MIPSOpcode op) override { DISABLE; }
+	void Comp_VIdt(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vcmp(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vcmov(MIPSOpcode op) override { DISABLE; }
+	void Comp_Viim(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vfim(MIPSOpcode op) override { DISABLE; }
+	void Comp_VCrossQuat(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vsgn(MIPSOpcode op) override { DISABLE; }
+	void Comp_Vocp(MIPSOpcode op) override { DISABLE; }
+
 	int Replace_fabsf() override { return 0; }
 
-	void Comp_Vbfy(MIPSOpcode op) {}
+	void Comp_Vbfy(MIPSOpcode op) override { DISABLE; }
 
 	JitBlockCache *GetBlockCache() override { return &blocks; }
 

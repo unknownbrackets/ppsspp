@@ -1185,6 +1185,7 @@ elseif(MIPS)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/MIPS/MipsAsm.cpp
 		Core/MIPS/MIPS/MipsAsm.h
+		Core/MIPS/MIPS/MipsCompBranch.cpp
 		Core/MIPS/MIPS/MipsJit.cpp
 		Core/MIPS/MIPS/MipsJit.h
 		GPU/Common/VertexDecoderFake.cpp

@@ -134,6 +134,8 @@ public:
 	}
 	FixupBranch BLTZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr);
 	void BLTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr);
+	FixupBranch BGEZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr);
+	void BGEZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr);
 	FixupBranch BEQ(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot = nullptr);
 	void BEQ(MIPSReg rs, MIPSReg rt, const void *func, std::function<void ()> delaySlot = nullptr);
 	FixupBranch BNE(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot = nullptr);
