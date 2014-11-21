@@ -1188,6 +1188,8 @@ elseif(MIPS)
 		Core/MIPS/MIPS/MipsCompBranch.cpp
 		Core/MIPS/MIPS/MipsJit.cpp
 		Core/MIPS/MIPS/MipsJit.h
+		Core/MIPS/MIPS/MipsRegCache.cpp
+		Core/MIPS/MIPS/MipsRegCache.h
 		GPU/Common/VertexDecoderFake.cpp
 		ext/disarm.cpp)
 else()

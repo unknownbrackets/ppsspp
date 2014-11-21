@@ -271,6 +271,7 @@ void MipsJit::Comp_Generic(MIPSOpcode op) {
 		RestoreRoundingMode();
 		MOVI2R(V0, js.compilerPC); // TODO: Use gpr
 		MovToPC(V0);
+		MOVI2R(A0, op.encoding);
 		QuickCallFunction(V0, (void *)func);
 		ApplyRoundingMode();
 		RestoreDowncount();

@@ -24,16 +24,11 @@ using namespace MIPSGen;
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "../MIPSVFPUUtils.h"
+#include "MipsRegCache.h"
 
 #ifndef offsetof
 #include "stddef.h"
 #endif
-
-// RegCache
-#define BASEREG S7
-#define CTXREG S6
-#define CODEREG S5
-#define DOWNCOUNTREG S4
 
 #define DISABLE { Comp_Generic(op); return; }
 
