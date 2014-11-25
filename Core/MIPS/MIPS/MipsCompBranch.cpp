@@ -390,8 +390,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op) {
 		}
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-		LW(V0, CTXREG, 4 * _RS);
-		destReg = V0;
+		LW(V1, CTXREG, 4 * _RS);
 		FlushAll();
 	} else {
 		LW(V1, CTXREG, 4 * _RS);
@@ -444,6 +443,13 @@ void Jit::Comp_Syscall(MIPSOpcode op) {
 	ApplyRoundingMode();
 	RestoreDowncount();
 
+	WriteSyscallExit();
+	js.compiling = false;
+}
+
+void Jit::Comp_Break(MIPSOpcode op)
+{
+	Comp_Generic(op);
 	WriteSyscallExit();
 	js.compiling = false;
 }

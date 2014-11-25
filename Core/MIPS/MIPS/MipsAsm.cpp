@@ -59,12 +59,14 @@ void Jit::GenerateFixedCode()
 
 	DEBUG_LOG(JIT, "Base: %08x", (u32)Memory::base);
 
-	// Subtract
-	ADDIU(R_SP, R_SP, -9 * 4);
+	// Fixed size (with pad) align to 64-bit
+	ADDIU(R_SP, R_SP, -56);
+	// Reserve first four for arg0-4
 	for (int i = 0; i < 8; ++i) {
-		SW(MIPSReg(S0 + i), R_SP, i * sizeof(u32));
+		SW(MIPSReg(S0 + i), R_SP, (4 + i) * sizeof(u32));
 	}
-	SW(R_RA, R_SP, 8 * sizeof(u32));
+	SW(S8, R_SP, (4 + 8) * sizeof(u32));
+	SW(R_RA, R_SP, (4 + 9) * sizeof(u32));
 
 	MOVI2R(BASEREG, (u32)Memory::base);
 	MOVI2R(CTXREG, (u32)mips_);
@@ -95,7 +97,6 @@ void Jit::GenerateFixedCode()
 		// TODO: Do we always need to write PC to RAM here?
 		MovToPC(R_AT);
 
-		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
 		dispatcher = GetCodePtr();
 
 			FixupBranch bail = BLTZ(DOWNCOUNTREG);
@@ -140,11 +141,11 @@ void Jit::GenerateFixedCode()
 	RestoreRoundingMode(true);
 
 	for (int i = 0; i < 8; ++i) {
-		LW(MIPSReg(S0 + i), R_SP, i * sizeof(u32));
+		LW(MIPSReg(S0 + i), R_SP, (4 + i) * sizeof(u32));
 	}
-	LW(R_RA, R_SP, 8 * sizeof(u32));
-	// Positive.
-	ADDIU(R_SP, R_SP, 9 * sizeof(u32));
+	LW(S8, R_SP, (4 + 8) * sizeof(u32));
+	LW(R_RA, R_SP, (4 + 9) * sizeof(u32));
+	ADDIU(R_SP, R_SP, 56);
 
 	JRRA();
 

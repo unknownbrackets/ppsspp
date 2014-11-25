@@ -150,6 +150,16 @@ void MipsJit::Compile(u32 em_address) {
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+
+	if (js.startDefaultPrefix && js.MayHavePrefix()) {
+		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", js.compilerPC - 4);
+		js.LogPrefix();
+
+		// Let's try that one more time.  We won't get back here because we toggled the value.
+		js.startDefaultPrefix = false;
+		ClearCache();
+		Compile(em_address);
+	}
 }
 
 void MipsJit::RunLoopUntil(u64 globalticks) {
@@ -168,6 +178,7 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b) {
 	js.compiling = true;
 	js.inDelaySlot = false;
 	js.PrefixStart();
+
 	b->checkedEntry = GetCodePtr();
 	// Check downcount
 	FixupBranch noskip = BGEZ(DOWNCOUNTREG);
@@ -361,8 +372,7 @@ void MipsJit::RestoreDowncount() {
 }
 
 void MipsJit::WriteDownCount(int offset) {
-	int theDowncount = js.downcountAmount + offset;
-	MOVI2R(V1, theDowncount);
+	MOVI2R(V1, (u32)(js.downcountAmount + offset));
 	SUBU(DOWNCOUNTREG, DOWNCOUNTREG, V1);
 }
 

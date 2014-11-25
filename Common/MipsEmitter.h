@@ -40,7 +40,7 @@ enum MIPSReg {
 	S0, S1, S2, S3, S4, S5, S6, S7,
 	T8, T9,
 	K0, K1,
-	R_GP, R_SP, R_FP,
+	R_GP, R_SP, S8,
 	R_RA,
 
 	F_BASE = 32,

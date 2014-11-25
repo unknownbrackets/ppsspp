@@ -75,7 +75,7 @@ public:
 	void Comp_Jump(MIPSOpcode op) override;
 	void Comp_JumpReg(MIPSOpcode op) override;
 	void Comp_Syscall(MIPSOpcode op) override;
-	void Comp_Break(MIPSOpcode op) override { DISABLE; }
+	void Comp_Break(MIPSOpcode op) override;
 
 	void Comp_IType(MIPSOpcode op) override { DISABLE; }
 	void Comp_RType2(MIPSOpcode op) override { DISABLE; }
