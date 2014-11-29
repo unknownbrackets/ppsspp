@@ -90,8 +90,8 @@ void Jit::Comp_RelBranch(MIPSOpcode op) {
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	LW(V0, CTXREG, 4 * _RS);
-	LW(V1, CTXREG, 4 * _RT);
+	LW(T0, CTXREG, 4 * _RS);
+	LW(T1, CTXREG, 4 * _RT);
 
 	MIPSGen::FixupBranch ptr;
 	if (!likely)
@@ -100,12 +100,12 @@ void Jit::Comp_RelBranch(MIPSOpcode op) {
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
 			FlushAll();
-		ptr = BranchTypeComp(op>>26, V0, V1);
+		ptr = BranchTypeComp(op>>26, T0, T1);
 	}
 	else
 	{
 		FlushAll();
-		ptr = BranchTypeComp(op>>26, V0, V1);
+		ptr = BranchTypeComp(op>>26, T0, T1);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
@@ -113,17 +113,17 @@ void Jit::Comp_RelBranch(MIPSOpcode op) {
 	bool andLink = (type == 22 || type == 23);
 	if (andLink)
 	{
-		MOVI2R(V0, js.compilerPC + 8);
-		SW(V0, CTXREG, MIPS_REG_RA * 4);
+		MOVI2R(T0, js.compilerPC + 8);
+		SW(T0, CTXREG, MIPS_REG_RA * 4);
 	}
 
 	// Take the branch
-	WriteExit(targetAddr, 0);
+	WriteExit(targetAddr, js.nextExit++);
 
 	SetJumpTarget(ptr);
 
 	// Not taken
-	WriteExit(js.compilerPC+8, 1);
+	WriteExit(js.compilerPC+8, js.nextExit++);
 
 	js.compiling = false;
 }
@@ -146,7 +146,7 @@ void Jit::Comp_RelBranchRI(MIPSOpcode op) {
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	LW(V0, CTXREG, 4 * _RS);
+	LW(T0, CTXREG, 4 * _RS);
 
 	MIPSGen::FixupBranch ptr;
 	if (!likely)
@@ -155,12 +155,12 @@ void Jit::Comp_RelBranchRI(MIPSOpcode op) {
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
 			FlushAll();
-		ptr = BranchTypeComp(type, V0, R_ZERO);
+		ptr = BranchTypeComp(type, T0, R_ZERO);
 	}
 	else
 	{
 		FlushAll();
-		ptr = BranchTypeComp(type, V0, R_ZERO);
+		ptr = BranchTypeComp(type, T0, R_ZERO);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
@@ -168,17 +168,17 @@ void Jit::Comp_RelBranchRI(MIPSOpcode op) {
 	bool andLink = (type == 18 || type == 19);
 	if (andLink)
 	{
-		MOVI2R(V0, js.compilerPC + 8);
-		SW(V0, CTXREG, MIPS_REG_RA * 4);
+		MOVI2R(T0, js.compilerPC + 8);
+		SW(T0, CTXREG, MIPS_REG_RA * 4);
 	}
 
 	// Take the branch
-	WriteExit(targetAddr, 0);
+	WriteExit(targetAddr, js.nextExit++);
 
 	SetJumpTarget(ptr);
 
 	// Not taken
-	WriteExit(js.compilerPC+8, 1);
+	WriteExit(js.compilerPC+8, js.nextExit++);
 
 	js.compiling = false;
 }
@@ -202,7 +202,7 @@ void Jit::Comp_FPUBranch(MIPSOpcode op) {
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	LW(V0, CTXREG, 4 * MIPS_REG_FPCOND);
+	LW(T0, CTXREG, 4 * MIPS_REG_FPCOND);
 
 	MIPSGen::FixupBranch ptr;
 	if (!likely)
@@ -212,17 +212,17 @@ void Jit::Comp_FPUBranch(MIPSOpcode op) {
 		else
 			FlushAll();
 		if (equalTest)
-			ptr = BNEZ(V0); // v0 == 1 or v0 != 0
+			ptr = BNEZ(T0); // v0 == 1 or v0 != 0
 		else
-			ptr = BEQZ(V0); // v0 != 1 or v0 == 0
+			ptr = BEQZ(T0); // v0 != 1 or v0 == 0
 	}
 	else
 	{
 		FlushAll();
 		if (equalTest)
-			ptr = BNEZ(V0);
+			ptr = BNEZ(T0);
 		else
-			ptr = BEQZ(V0);
+			ptr = BEQZ(T0);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
@@ -261,8 +261,8 @@ void Jit::Comp_VBranch(MIPSOpcode op) {
 
 	int imm3 = (op >> 18) & 7;
 
-	LW(V0, CTXREG, 4 * MIPS_REG_VFPUCC);
-	MOVI2R(V1, 1 << imm3);
+	LW(T0, CTXREG, 4 * MIPS_REG_VFPUCC);
+	MOVI2R(T1, 1 << imm3);
 
 	MIPSGen::FixupBranch ptr;
 	js.inDelaySlot = true;
@@ -273,17 +273,17 @@ void Jit::Comp_VBranch(MIPSOpcode op) {
 		else
 			FlushAll();
 		if (equalTest)
-			ptr = BEQ(V0, V1);
+			ptr = BEQ(T0, T1);
 		else
-			ptr = BNE(V0, V1);
+			ptr = BNE(T0, T1);
 	}
 	else
 	{
 		FlushAll();
 		if (equalTest)
-			ptr = BEQ(V0, V1);
+			ptr = BEQ(T0, T1);
 		else
-			ptr = BNE(V0, V1);
+			ptr = BNE(T0, T1);
 		if (!delaySlotIsBranch)
 			CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
@@ -337,8 +337,8 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		if (ReplaceJalTo(targetAddr))
 			return;
 
-		MOVI2R(V0, js.compilerPC + 8);
-		SW(V0, CTXREG, MIPS_REG_RA * 4);
+		MOVI2R(T0, js.compilerPC + 8);
+		SW(T0, CTXREG, MIPS_REG_RA * 4);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {
 			AddContinuedBlock(targetAddr);
@@ -373,30 +373,30 @@ void Jit::Comp_JumpReg(MIPSOpcode op) {
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;
 
-	MIPSReg destReg = V1;
+	MIPSReg destReg = T1;
 	if (IsSyscall(delaySlotOp)) {
-		LW(V0, CTXREG, 4 * _RS);
-		MovToPC(V0);  // For syscall to be able to return.
+		LW(T0, CTXREG, 4 * _RS);
+		MovToPC(T0);  // For syscall to be able to return.
 		if (andLink) {
-			MOVI2R(V0, js.compilerPC + 8);
-			SW(V0, CTXREG, _RD * 4);
+			MOVI2R(T0, js.compilerPC + 8);
+			SW(T0, CTXREG, _RD * 4);
 		}
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 		return;  // Syscall wrote exit code.
 	} else if (delaySlotIsNice) {
 		if (andLink) {
-			MOVI2R(V0, js.compilerPC + 8);
-			SW(V0, CTXREG, _RD * 4);
+			MOVI2R(T0, js.compilerPC + 8);
+			SW(T0, CTXREG, _RD * 4);
 		}
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-		LW(V1, CTXREG, 4 * _RS);
+		LW(T1, CTXREG, 4 * _RS);
 		FlushAll();
 	} else {
-		LW(V1, CTXREG, 4 * _RS);
+		LW(T1, CTXREG, 4 * _RS);
 		if (andLink) {
-			MOVI2R(V0, js.compilerPC + 8);
-			SW(V0, CTXREG, _RD * 4);
+			MOVI2R(T0, js.compilerPC + 8);
+			SW(T0, CTXREG, _RD * 4);
 		}
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
@@ -433,12 +433,12 @@ void Jit::Comp_Syscall(MIPSOpcode op) {
 	if (quickFunc)
 	{
 		MOVI2R(A0, (u32)(intptr_t)GetSyscallInfo(op));
-		QuickCallFunction(V0, quickFunc);
+		QuickCallFunction(T0, quickFunc);
 	}
 	else
 	{
 		MOVI2R(A0, op.encoding);
-		QuickCallFunction(V0, (void *)&CallSyscall);
+		QuickCallFunction(T0, (void *)&CallSyscall);
 	}
 	ApplyRoundingMode();
 	RestoreDowncount();

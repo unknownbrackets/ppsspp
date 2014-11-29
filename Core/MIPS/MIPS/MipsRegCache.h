@@ -27,6 +27,6 @@ using namespace MIPSGen;
 #define CTXREG (S6)
 #define CODEREG (S5)
 #define DOWNCOUNTREG (S4)
-#define SCRATCHREG1 (V0)
-#define SCRATCHREG2 (V1)
+#define SCRATCHREG1 (T0)
+#define SCRATCHREG2 (T1)
 

@@ -109,10 +109,10 @@ void Jit::GenerateFixedCode()
 			LW(R_AT, CTXREG, offsetof(MIPSState, pc));
 			ADDU(R_AT, BASEREG, R_AT);
 			LW(R_AT, R_AT, 0);
-			SRL(V0, R_AT, 24);
+			SRL(T0, R_AT, 24);
 			// Subtract
-			ADDIU(V0, V0, -(MIPS_EMUHACK_OPCODE >> 24));
-			FixupBranch notfound = BNEZ(V0);
+			ADDIU(T0, T0, -(MIPS_EMUHACK_OPCODE >> 24));
+			FixupBranch notfound = BNEZ(T0);
 				EXT(R_AT, R_AT, 0, 24);
 				ADDU(R_AT, R_AT, CODEREG);
 				JR(R_AT);
@@ -121,7 +121,7 @@ void Jit::GenerateFixedCode()
 			// No block found, let's jit
 			SaveDowncount();
 			RestoreRoundingMode(true);
-			QuickCallFunction(V1, (void *)&JitAt);
+			QuickCallFunction(T1, (void *)&JitAt);
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 
