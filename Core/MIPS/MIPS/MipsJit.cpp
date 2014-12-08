@@ -31,6 +31,7 @@
 #include "Core/HLE/ReplaceTables.h"
 
 #include "MipsJit.h"
+#include "MipsRegCache.h"
 #include "CPUDetect.h"
 
 void DisassembleMIPS(const u8 *data, int size) {

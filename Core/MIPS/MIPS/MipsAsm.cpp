@@ -26,15 +26,27 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPS/MipsJit.h"
 #include "Core/MIPS/MIPS/MipsAsm.h"
+#include "Core/MIPS/MIPS/MipsRegCache.h"
 
 using namespace MIPSGen;
 
 static const bool enableDebug = false;
 
-// Mappable registers: S0-S7
+// Scratch registers:
+// R_AT, T0, T1, T2, T3, T9:  Currently but can be reduced when regcache is available
+
+// Mappable registers:
+// S0, S1, S2, S3, S8: Saved
+// T4, T5, T6, T7, T8, T9: Temporary
+// V0, V1: Can use but is used as return value
+// A0, A1, A2, A3: Can use but is used as argument
 
 // STATIC ALLOCATION MIPS:
 // S4: Downcounter
+// S5: Code reg
+// S6: PSP MIPS context reg
+// S7: Base pointer
+
 extern volatile CoreState coreState;
 
 void JitAt()
@@ -45,7 +57,7 @@ void JitAt()
 
 void ShowPC(u32 sp) {
 	if (currentMIPS) {
-		ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
+		ERROR_LOG(JIT, "ShowPC : %08x  NativeSP : %08x", currentMIPS->pc, sp);
 	} else {
 		ERROR_LOG(JIT, "Universe corrupt?");
 	}
@@ -107,6 +119,7 @@ void Jit::GenerateFixedCode()
 			dispatcherNoCheck = GetCodePtr();
 
 			LW(R_AT, CTXREG, offsetof(MIPSState, pc));
+			EXT(R_AT, R_AT, 0, 30);    // &= 0x3FFFFFFF
 			ADDU(R_AT, BASEREG, R_AT);
 			LW(R_AT, R_AT, 0);
 			SRL(T0, R_AT, 24);

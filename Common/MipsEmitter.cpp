@@ -257,8 +257,8 @@ void MIPSEmitter::QuickCallFunction(MIPSReg scratchreg, const void *func) {
 		JAL(func);
 	} else {
 		// This may never happen.
-		MOVP2R(scratchreg, func);
-		JALR(scratchreg);
+		MOVP2R(T9, func);
+		JALR(T9);
 	}
 }
 

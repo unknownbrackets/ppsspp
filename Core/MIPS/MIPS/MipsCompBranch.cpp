@@ -27,6 +27,7 @@
 #include "Core/MIPS/MIPSTables.h"
 
 #include "Core/MIPS/MIPS/MipsJit.h"
+#include "Core/MIPS/MIPS/MipsRegCache.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
 #include "Common/MipsEmitter.h"
