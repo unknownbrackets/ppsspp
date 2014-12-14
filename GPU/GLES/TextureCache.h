@@ -22,11 +22,15 @@
 #include "gfx_es2/gpu_features.h"
 
 #include "Globals.h"
+#include "Common/Atomics.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/FBO.h"
 #include "GPU/GLES/TextureScaler.h"
 #include "GPU/Common/TextureCacheCommon.h"
+
+#define USE_TEXTHREAD_WANT_SPIN 1
+#define USE_TEXTHREAD_DONE_SPIN 1
 
 struct VirtualFramebuffer;
 class FramebufferManager;
@@ -87,6 +91,20 @@ public:
 
 	void ApplyTexture();
 
+	void BeginThread();
+	void EndThread();
+
+	inline void PrepareTexture() {
+		if (useThread_) {
+			if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+				Common::AtomicOr(threadStatus_, THREADSTAT_WANTHASH);
+#if !USE_TEXTHREAD_WANT_SPIN
+				// TODO: Notify.
+#endif
+			}
+		}
+	}
+
 protected:
 	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
 
@@ -107,6 +125,9 @@ private:
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+	void RunThread();
+	void RunThreadHash();
+	void SyncThread();
 
 	std::vector<u32> nameCache_;
 	TexCache secondCache;
@@ -125,6 +146,18 @@ private:
 	int decimationCounter_;
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
+
+	enum {
+		THREADSTAT_IDLE = 0x00,
+		THREADSTAT_READY = 0x01,
+		THREADSTAT_WANTHASH = 0x02,
+		THREADSTAT_DONEHASH = 0x04,
+		THREADSTAT_SHUTDOWN = 0x80,
+	};
+	bool useThread_;
+	bool hasTexHash_;
+	u32 fullHash_;
+	volatile u32 threadStatus_;
 
 	FramebufferManager *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;

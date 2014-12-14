@@ -161,6 +161,7 @@ protected:
 	void FastRunLoop(DisplayList &list) override;
 	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
+	bool InterpretList(DisplayList &list) override;
 	void FinishDeferred() override;
 
 private:

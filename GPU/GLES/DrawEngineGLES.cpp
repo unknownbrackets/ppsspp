@@ -289,6 +289,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 		prevPrim_ = prim;
 	}
 
+	textureCache_->PrepareTexture();
 	SetupVertexDecoderInternal(vertType);
 
 	*bytesRead = vertexCount * dec_->VertexSize();

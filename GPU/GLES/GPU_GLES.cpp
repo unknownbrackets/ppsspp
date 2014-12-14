@@ -847,6 +847,13 @@ void GPU_GLES::CopyDisplayToOutputInternal() {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
+bool GPU_GLES::InterpretList(DisplayList &list) {
+	textureCache_.BeginThread();
+	bool result = GPUCommon::InterpretList(list);
+	textureCache_.EndThread();
+	return result;
+}
+
 // Maybe should write this in ASM...
 void GPU_GLES::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("gpuloop");

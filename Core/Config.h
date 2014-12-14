@@ -134,6 +134,7 @@ public:
 	bool bSeparateCPUThread;
 	bool bSeparateSASThread;
 	bool bSeparateIOThread;
+	bool bSeparateTexThread;
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;

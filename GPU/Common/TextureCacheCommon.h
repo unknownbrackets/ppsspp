@@ -116,13 +116,13 @@ public:
 		bool sClamp;
 		bool tClamp;
 
-		Status GetHashStatus() {
+		Status GetHashStatus() const {
 			return Status(status & STATUS_MASK);
 		}
 		void SetHashStatus(Status newStatus) {
 			status = (status & ~STATUS_MASK) | newStatus;
 		}
-		Status GetAlphaStatus() {
+		Status GetAlphaStatus() const {
 			return Status(status & STATUS_ALPHA_MASK);
 		}
 		void SetAlphaStatus(Status newStatus) {

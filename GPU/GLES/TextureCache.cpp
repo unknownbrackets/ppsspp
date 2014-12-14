@@ -22,9 +22,14 @@
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
+#include "base/functional.h"
+#include "base/timeutil.h"
+#include "thread/thread.h"
+#include "thread/threadutil.h"
 
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
+#include "Common/Atomics.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -70,6 +75,12 @@
 
 #define INVALID_TEX -1
 
+std::thread *texThread = nullptr;
+recursive_mutex texThreadCondLock;
+condition_variable texThreadCond;
+recursive_mutex texThreadCondDoneLock;
+condition_variable texThreadCondDone;
+
 TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
@@ -79,10 +90,28 @@ TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_
 	SetupTextureDecoder();
 
 	nextTexture_ = nullptr;
+
+	threadStatus_ = THREADSTAT_IDLE;
+	// TODO: Not compatible with backoff yet.
+	useThread_ = g_Config.bSeparateTexThread && !g_Config.bTextureBackoffCache;
+	hasTexHash_ = false;
+	if (useThread_) {
+		texThread = new std::thread(std::bind(&TextureCache::RunThread, this));
+	}
 }
 
 TextureCache::~TextureCache() {
 	Clear(true);
+
+	if (useThread_) {
+		BeginThread();
+		Common::AtomicOr(threadStatus_, THREADSTAT_SHUTDOWN);
+		while ((Common::AtomicLoadAcquire(threadStatus_) & THREADSTAT_SHUTDOWN) != 0) {
+			sleep_ms(1);
+		}
+	}
+	delete texThread;
+	texThread = nullptr;
 }
 
 void TextureCache::Clear(bool delete_them) {
@@ -561,6 +590,161 @@ inline u32 TextureCache::GetCurrentClutHash() {
 	return clutHash_;
 }
 
+void TextureCache::BeginThread() {
+	lock_guard guard(texThreadCondLock);
+	Common::AtomicOr(threadStatus_, THREADSTAT_READY);
+	texThreadCond.notify_one();
+}
+void TextureCache::EndThread() {
+#if USE_TEXTHREAD_WANT_SPIN
+	Common::AtomicAnd(threadStatus_, ~THREADSTAT_READY);
+#else
+	lock_guard guard(texThreadCondLock);
+	Common::AtomicAnd(threadStatus_, ~THREADSTAT_READY);
+	texThreadCond.notify_one();
+#endif
+}
+
+void TextureCache::RunThread() {
+	setCurrentThreadName("Tex");
+	// TODO: bSeparateTexThread in SetTexture().
+
+	while ((Common::AtomicLoadAcquire(threadStatus_) & THREADSTAT_SHUTDOWN) == 0) {
+#if USE_TEXTHREAD_WANT_SPIN
+		if ((Common::AtomicLoadAcquire(threadStatus_) & THREADSTAT_READY) == 0) {
+			lock_guard guard(texThreadCondLock);
+			while ((Common::AtomicLoadAcquire(threadStatus_) & THREADSTAT_READY) == 0) {
+				texThreadCond.wait(texThreadCondLock);
+			}
+		}
+#else
+		u32 wants = THREADSTAT_WANTHASH;
+		if ((Common::AtomicLoadAcquire(threadStatus_) & wants) == 0) {
+			lock_guard guard(texThreadCondLock);
+			while ((Common::AtomicLoadAcquire(threadStatus_) & wants) == 0) {
+				texThreadCond.wait(texThreadCondLock);
+			}
+		}
+#endif
+
+		u32 hash = Common::AtomicLoadAcquire(threadStatus_) & (THREADSTAT_WANTHASH | THREADSTAT_DONEHASH);
+		if (hash == THREADSTAT_WANTHASH) {
+			RunThreadHash();
+
+#if USE_TEXTHREAD_DONE_SPIN
+			Common::AtomicOr(threadStatus_, THREADSTAT_DONEHASH);
+			if ((Common::AtomicLoadAcquire(threadStatus_) & (THREADSTAT_WANTHASH | THREADSTAT_DONEHASH)) == THREADSTAT_DONEHASH) {
+				// Oops, want got cleared.  Let's clear done as well.
+				Common::AtomicAnd(threadStatus_, ~THREADSTAT_DONEHASH);
+			}
+#else
+			lock_guard guard(texThreadCondDoneLock);
+			Common::AtomicOr(threadStatus_, THREADSTAT_DONEHASH);
+			if ((Common::AtomicLoadAcquire(threadStatus_) & (THREADSTAT_WANTHASH | THREADSTAT_DONEHASH)) == THREADSTAT_DONEHASH) {
+				// Oops, want got cleared.  Let's clear done as well.
+				Common::AtomicAnd(threadStatus_, ~THREADSTAT_DONEHASH);
+			}
+			texThreadCondDone.notify_one();
+#endif
+		}
+	}
+
+	threadStatus_ = THREADSTAT_IDLE;
+}
+
+void TextureCache::RunThreadHash() {
+	// TODO: Make this stuff more common?
+	const u32 texaddr = gstate.getTextureAddress(0);
+	if (!Memory::IsValidAddress(texaddr)) {
+		return;
+	}
+
+	GETextureFormat format = gstate.getTextureFormat();
+	if (format >= 11) {
+		// TODO: Better assumption?
+		format = GE_TFMT_5650;
+	}
+
+	const int bufw = GetTextureBufw(0, texaddr, format);
+	const u16 dim = gstate.getTextureDimension(0);
+	const int w = gstate.getTextureWidth(0);
+	const int h = gstate.getTextureHeight(0);
+
+	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
+	bool hasClut = gstate.isTextureFormatIndexed();
+	if (hasClut) {
+		// We should be safe updating it even twice simultaneously.
+		if (clutLastFormat_ != gstate.clutformat) {
+			// We update here because the clut format can be specified after the load.
+			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
+		}
+		u32 cluthash = GetCurrentClutHash() ^ gstate.clutformat;
+		cachekey ^= cluthash;
+	}
+
+	// We can't update this because we only want one side updating it.
+	// TODO: Or, would it be safe for updating at least?  Could preset some logic.
+	const TexCache constCache = cache;
+	auto iter = constCache.find(cachekey);
+	TexCacheEntry cacheEntry = {0};
+
+	bool shouldHash = false;
+	if (iter == cache.end()) {
+		shouldHash = true;
+	} else {
+		const TexCacheEntry *entry = &iter->second;
+		const u8 maxLevel = gstate.getTextureMaxLevel();
+		if (!entry->Matches(dim, format, maxLevel)) {
+			shouldHash = true;
+		} else if (!entry->framebuffer) {
+			// Okay, so the texture matches.  Now to decide if we ought to hash it.
+			// We only hash on certain changes / statuses.
+			shouldHash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
+			if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
+				shouldHash = true;
+			} else if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
+				shouldHash = false;
+			}
+		}
+		cacheEntry = *entry;
+	}
+
+	// Okay, now we know if we want the hash.  Generation time.
+	if (shouldHash) {
+		fullHash_ = QuickTexHash(replacer, texaddr, bufw, w, h, format, &cacheEntry);
+		hasTexHash_ = true;
+	} else {
+		hasTexHash_ = false;
+	}
+}
+
+//__declspec(noinline)
+void TextureCache::SyncThread() {
+	if (useThread_) {
+		u32 doneBits = 0;
+		if ((Common::AtomicLoadAcquire(threadStatus_) & THREADSTAT_WANTHASH) != 0) {
+			doneBits |= THREADSTAT_DONEHASH;
+		}
+
+		if (doneBits != 0) {
+#if USE_TEXTHREAD_DONE_SPIN
+			while ((Common::AtomicLoadAcquire(threadStatus_) & doneBits) != doneBits) {
+				// We spin for speed.  Must be multicore (maybe branch if not?)
+				continue;
+			}
+#else
+			lock_guard guard(texThreadCondDoneLock);
+			while ((Common::AtomicLoadAcquire(threadStatus_) & doneBits) != doneBits) {
+				texThreadCondDone.wait(texThreadCondDoneLock);
+			}
+#endif
+		}
+
+		// Okay, got it.  Let's clear all the bits now.
+		Common::AtomicStoreRelease(threadStatus_, THREADSTAT_READY);
+	}
+}
+
 // #define DEBUG_TEXTURES
 
 #ifdef DEBUG_TEXTURES
@@ -655,7 +839,9 @@ void TextureCache::ApplyTexture() {
 			// Update the hash on the texture.
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
-			entry->fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+			SyncThread();
+			entry->fullhash = hasTexHash_ ? fullHash_ : QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+			hasTexHash_ = false;
 		}
 		if (nextNeedsChange_) {
 			// This texture existed previously, let's handle the change.
@@ -1102,6 +1288,10 @@ void TextureCache::SetTexture(bool force) {
 			nextNeedsChange_ = true;
 		}
 	} else {
+		// Before we update the cache, we need to sync the thread.
+		// It may be reading from the cache, and inserting would break that.
+		SyncThread();
+
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
@@ -1160,7 +1350,9 @@ bool TextureCache::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
 	bool hashFail = false;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	SyncThread();
+	u32 fullhash = hasTexHash_ ? fullHash_ : QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	hasTexHash_ = false;
 	if (fullhash != entry->fullhash) {
 		hashFail = true;
 	} else {
