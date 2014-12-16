@@ -22,6 +22,7 @@ using namespace MIPSGen;
 
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/IR.h"
 #include "../MIPSVFPUUtils.h"
 
 #ifndef offsetof
@@ -161,7 +162,7 @@ private:
 	JitBlockCache blocks;
 	JitOptions jo;
 	JitState js;
-
+	IRBlock ir;
 	MIPSState *mips_;
 
 	int dontLogBlocks;
