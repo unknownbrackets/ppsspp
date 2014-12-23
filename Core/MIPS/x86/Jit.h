@@ -69,6 +69,7 @@ public:
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
 	IRBlock *GetIRBlock() { return &irblock; }
+	IREntry &GetIREntry() { return irblock.entries[js.irBlockPos]; }
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
