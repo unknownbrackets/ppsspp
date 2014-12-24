@@ -614,6 +614,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 
 static u32 savedPC;
 
+// jr ra  << helpful for grep
 void Jit::Comp_JumpReg(MIPSOpcode op)
 {
 	CONDITIONAL_LOG;
@@ -679,6 +680,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), M(&savedPC));
+		destReg = EAX;
 		FlushAll();
 	}
 
