@@ -58,6 +58,8 @@ public:
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
+	const JitOptions &GetJitOptions() { return jo; }
+
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
 	// OR NOT
@@ -185,7 +187,6 @@ public:
 
 private:
 	void GenerateFixedCode(JitOptions &jo);
-	void ExtractIR(u32 address, IRBlock *block);
 	void GetStateAndFlushAll(RegCacheState &state);
 	void RestoreState(const RegCacheState& state);
 	void FlushAll();
