@@ -199,6 +199,7 @@ namespace MIPSComp {
 		bool useStaticAlloc;
 
 		// Common
+		bool useClobberOpt;
 		bool enableBlocklink;
 		bool immBranches;
 		bool continueBranches;

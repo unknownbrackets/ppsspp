@@ -68,9 +68,14 @@ void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpAr
 		fpr.MapReg(fd, true, true);
 		(this->*arith)(fpr.RX(fd), fpr.R(fs));
 	} else if (ft != fd) {
-		// fs can't be fd (handled above.)
-		fpr.MapReg(fd, false, true);
-		CopyFPReg(fpr.RX(fd), fpr.R(fs));
+		if (fpr.R(fs).IsSimpleReg() && !GetIREntry().IsFPRAlive(fs) && fs != ft) {
+			// NOTICE_LOG(JIT, "tri mov eliminated at %08x", js.blockStart);
+			fpr.FlushRemap(fs, fd, GetIREntry().IsFPRClobbered(fs));
+		} else {
+			// fs can't be fd (handled above.)
+			fpr.MapReg(fd, false, true);
+			CopyFPReg(fpr.RX(fd), fpr.R(fs));
+		}
 		(this->*arith)(fpr.RX(fd), fpr.R(ft));
 	} else {
 		// fd must be ft, and order must matter.
@@ -275,7 +280,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	};
 
 	switch (op & 0x3f) {
-	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
+	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs.s
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
 		if (fd != fs && fpr.IsMapped(fs)) {
@@ -289,24 +294,34 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		}
 		break;
 
-	case 6:	//F(fd)	= F(fs);				break; //mov
+	case 6:	//F(fd)	= F(fs);				break; //mov.s
 		if (fd != fs) {
-			fpr.SpillLock(fd, fs);
-			fpr.MapReg(fd, fd == fs, true);
-			CopyFPReg(fpr.RX(fd), fpr.R(fs));
+			if (fpr.R(fs).IsSimpleReg() && !GetIREntry().IsFPRAlive(fs)) {
+				fpr.FlushRemap(fs, fd, GetIREntry().IsFPRClobbered(fs));
+			} else {
+				fpr.SpillLock(fd, fs);
+				fpr.MapReg(fd, fd == fs, true);
+				CopyFPReg(fpr.RX(fd), fpr.R(fs));
+			}
 		}
 		break;
 
 	case 7:	//F(fd)	= -F(fs);			 break; //neg
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
-		if (fd != fs && fpr.IsMapped(fs)) {
-			MOVAPS(fpr.RX(fd), M(ssSignBits2));
-			XORPS(fpr.RX(fd), fpr.R(fs));
-		} else {
-			if (fd != fs) {
+		if (fd != fs) {
+			if (fpr.R(fs).IsSimpleReg() && !GetIREntry().IsFPRAlive(fs)) {
+				// NOTICE_LOG(JIT,"fneg mov eliminated at %08x", js.blockStart);
+				fpr.FlushRemap(fs, fd, GetIREntry().IsFPRClobbered(fs));
+				XORPS(fpr.RX(fd), M(ssSignBits2));
+			} else if (fpr.IsMapped(fs)) {
+				MOVAPS(fpr.RX(fd), M(ssSignBits2));
+				XORPS(fpr.RX(fd), fpr.R(fs));
+			} else {
 				MOVSS(fpr.RX(fd), fpr.R(fs));
+				XORPS(fpr.RX(fd), M(ssSignBits2));
 			}
+		} else {
 			XORPS(fpr.RX(fd), M(ssSignBits2));
 		}
 		break;
