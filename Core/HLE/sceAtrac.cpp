@@ -412,7 +412,7 @@ struct Atrac {
 			// TODO: Or actually, should we return a blank frame and pretend it worked?
 			return ATDECODE_FEEDME;
 		} else if (bytes_read < 0) {
-			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x", bytes_read, bytes_read);			
+			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x", bytes_read, bytes_read);
 			bytes_read = 1;
 			packet->size -= bytes_read;
 			packet->data += bytes_read;			
