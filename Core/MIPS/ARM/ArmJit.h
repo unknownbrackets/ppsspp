@@ -25,7 +25,6 @@
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/MIPS/ARM/ArmAsm.h"
 #include "Core/MIPS/IR.h"
 
 #ifndef offsetof
@@ -178,8 +177,6 @@ public:
 	void InvalidateCacheAt(u32 em_address, int length = 4);
 
 	void EatPrefix() { js.EatPrefix(); }
-
-	void ExtractIR(u32 address, IRBlock *block);
 
 private:
 	void GenerateFixedCode();

@@ -53,8 +53,6 @@ public:
 	Jit(MIPSState *mips);
 	virtual ~Jit();
 
-	const JitOptions &GetJitOptions() { return jo; }
-
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
