@@ -543,7 +543,8 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 			WRITE(p, "  PS_OUT Out;\n");
 			WRITE(p, "  Out.color0 = float4(v.rgb, %s);\n", replacedAlpha.c_str());
-			WRITE(p, "  Out.color1 = float4(v.a, v.a, v.a, v.a);\n");
+			// NOTE: Supposedly color1 must have alpha of 0.0 at all times.
+			WRITE(p, "  Out.color1 = float4(v.a, v.a, v.a, 0.0);\n");
 			WRITE(p, "  return Out;\n");
 		} else {
 			WRITE(p, "  return v;\n");
