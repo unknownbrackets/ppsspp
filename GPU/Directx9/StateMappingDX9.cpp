@@ -209,7 +209,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.shadeMode.set(D3DSHADE_GOURAUD);
 		} else {
 			// Set cull
-			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 			dxstate.cullMode.set(wantCull, gstate.getCullMode());
 			dxstate.shadeMode.set(gstate.getShadeMode() == GE_SHADE_GOURAUD ? D3DSHADE_GOURAUD : D3DSHADE_FLAT);
 		}

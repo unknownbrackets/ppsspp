@@ -37,7 +37,7 @@
 bool CanUseHardwareTransform(int prim) {
 	if (!g_Config.bHardwareTransform)
 		return false;
-	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
+	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
 }
 
 bool IsStencilTestOutputDisabled() {

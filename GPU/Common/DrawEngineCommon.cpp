@@ -694,7 +694,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 
 	*bytesRead = vertexCount * dec_->VertexSize();
-	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
+	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES))
 		return;
 
 	if (g_Config.bVertexCache) {

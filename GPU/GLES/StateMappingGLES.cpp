@@ -264,7 +264,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			cullEnable = false;
 		} else {
 			// Set cull
-			cullEnable = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			cullEnable = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 		}
 		renderManager->SetRaster(cullEnable, GL_CCW, cullMode, dither);
 	}

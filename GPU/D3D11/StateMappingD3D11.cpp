@@ -282,7 +282,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			keys_.raster.depthClipEnable = 1;
 		} else {
 			// Set cull
-			bool wantCull = prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			bool wantCull = prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 			keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
 			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
 				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
