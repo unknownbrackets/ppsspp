@@ -155,7 +155,7 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
-static void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+static void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
 
@@ -183,17 +183,18 @@ static void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, Transfo
 		}
 	}
 
-	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
+	const TransformedVertex *transInput = drawBuffer;
 	TransformedVertex *trans = &transformedExpanded[0];
 	const u16 *indsIn = (const u16 *)inds;
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 	maxIndex = 4 * (vertexCount / 2);
 	for (int i = 0; i < vertexCount; i += 2) {
-		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
-		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+		const TransformedVertex &transVtxTL = transInput[indsIn[i + 0]];
+		const TransformedVertex &transVtxBR = transInput[indsIn[i + 1]];
 
 		// We have to turn the rectangle into two triangles, so 6 points.
 		// This is 4 verts + 6 indices.
@@ -238,7 +239,29 @@ static void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, Transfo
 		numTrans += 6;
 	}
 
+	drawBuffer = transformedExpanded;
 	inds = newInds;
+}
+
+static void ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans) {
+	// Each point -> 4 verts, 6 inds.  Expensive.
+
+	// TODO: Also change prim type in transform pipelines.
+	numTrans = vertexCount;
+}
+
+static void ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans) {
+	// Each line -> 4 verts, 6 inds.
+
+	// TODO: Also change prim type in transform pipelines.
+	numTrans = vertexCount;
+}
+
+static void ExpandLineStrip(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans) {
+	// Each line -> 4 verts, 6 inds.
+
+	// TODO: Also change prim type in transform pipelines.
+	numTrans = vertexCount;
 }
 
 // NOTE: The viewport must be up to date!
@@ -604,8 +627,7 @@ void SoftwareTransform(
 	drawIndexed = false;
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
-		drawBuffer = transformedExpanded;
+		ExpandRectangles(vertexCount, maxIndex, inds, drawBuffer, transformedExpanded, numTrans, throughmode);
 		drawIndexed = true;
 
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
@@ -621,6 +643,12 @@ void SoftwareTransform(
 				result->stencilValue = 0;
 			}
 		}
+	} else if (prim == GE_PRIM_POINTS) {
+		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans);
+	} else if (prim == GE_PRIM_LINES) {
+		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans);
+	} else if (prim == GE_PRIM_LINE_STRIP) {
+		ExpandLineStrip(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans);
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;

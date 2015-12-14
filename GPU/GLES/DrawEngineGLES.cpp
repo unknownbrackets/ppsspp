@@ -52,7 +52,7 @@ const GLuint glprim[8] = {
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
 	GL_TRIANGLES,
-	// Rectangles need to be expanded into triangles.
+	// With OpenGL ES we have to expand sprites (rects) into triangles, but using indexes this only doubles.
 };
 
 enum {

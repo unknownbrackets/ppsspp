@@ -339,6 +339,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	if (prim == GE_PRIM_RECTANGLES) {
 		ExpandRectangles(vertices, indices, count, gpuDebug->GetGState().isModeThrough());
 	}
+	// TODO: points, lines?
 
 	float fw, fh;
 	float x, y;
