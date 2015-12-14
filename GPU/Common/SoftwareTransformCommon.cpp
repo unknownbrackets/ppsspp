@@ -155,6 +155,92 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
+static void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
+
+	// Pretty bad hackery where we re-do the transform (in RotateUV) to see if the vertices are flipped in screen space.
+	// Since we've already got API-specific assumptions (Y direction, etc) baked into the projMatrix (which we arguably shouldn't),
+	// this gets nasty and very hard to understand.
+
+	float flippedMatrix[16];
+	if (!throughmode) {
+		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+
+		const bool invertedY = flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
+		if (invertedY) {
+			flippedMatrix[1] = -flippedMatrix[1];
+			flippedMatrix[5] = -flippedMatrix[5];
+			flippedMatrix[9] = -flippedMatrix[9];
+			flippedMatrix[13] = -flippedMatrix[13];
+		}
+		const bool invertedX = gstate_c.vpWidth < 0;
+		if (invertedX) {
+			flippedMatrix[0] = -flippedMatrix[0];
+			flippedMatrix[4] = -flippedMatrix[4];
+			flippedMatrix[8] = -flippedMatrix[8];
+			flippedMatrix[12] = -flippedMatrix[12];
+		}
+	}
+
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	vertexCount = vertexCount & ~1;
+	numTrans = 0;
+	TransformedVertex *trans = &transformedExpanded[0];
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+	maxIndex = 4 * (vertexCount / 2);
+	for (int i = 0; i < vertexCount; i += 2) {
+		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
+		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+		// We have to turn the rectangle into two triangles, so 6 points.
+		// This is 4 verts + 6 indices.
+
+		// bottom right
+		trans[0] = transVtxBR;
+
+		// top right
+		trans[1] = transVtxBR;
+		trans[1].y = transVtxTL.y;
+		trans[1].v = transVtxTL.v;
+
+		// top left
+		trans[2] = transVtxBR;
+		trans[2].x = transVtxTL.x;
+		trans[2].y = transVtxTL.y;
+		trans[2].u = transVtxTL.u;
+		trans[2].v = transVtxTL.v;
+
+		// bottom left
+		trans[3] = transVtxBR;
+		trans[3].x = transVtxTL.x;
+		trans[3].u = transVtxTL.u;
+
+		// That's the four corners. Now process UV rotation.
+		if (throughmode)
+			RotateUVThrough(trans);
+		else
+			RotateUV(trans, flippedMatrix, flippedY);
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+
+	inds = newInds;
+}
+
 // NOTE: The viewport must be up to date!
 void SoftwareTransform(
 	int prim, int vertexCount, u32 vertType, u16 *&inds, int indexType,
@@ -512,100 +598,14 @@ void SoftwareTransform(
 		}
 	}
 
-	// Step 2: expand rectangles.
+	// Step 2: expand rectangles, lines, and points.
 	drawBuffer = transformed;
 	numTrans = 0;
 	drawIndexed = false;
 
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-
-	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
-
-	if (prim != GE_PRIM_RECTANGLES) {
-		// We can simply draw the unexpanded buffer.
-		numTrans = vertexCount;
-		drawIndexed = true;
-	} else {
-		// Pretty bad hackery where we re-do the transform (in RotateUV) to see if the vertices are flipped in screen space.
-		// Since we've already got API-specific assumptions (Y direction, etc) baked into the projMatrix (which we arguably shouldn't),
-		// this gets nasty and very hard to understand.
-
-		float flippedMatrix[16];
-		if (!throughmode) {
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-
-			const bool invertedY = flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
-			if (invertedY) {
-				flippedMatrix[1] = -flippedMatrix[1];
-				flippedMatrix[5] = -flippedMatrix[5];
-				flippedMatrix[9] = -flippedMatrix[9];
-				flippedMatrix[13] = -flippedMatrix[13];
-			}
-			const bool invertedX = gstate_c.vpWidth < 0;
-			if (invertedX) {
-				flippedMatrix[0] = -flippedMatrix[0];
-				flippedMatrix[4] = -flippedMatrix[4];
-				flippedMatrix[8] = -flippedMatrix[8];
-				flippedMatrix[12] = -flippedMatrix[12];
-			}
-		}
-
-		//rectangles always need 2 vertices, disregard the last one if there's an odd number
-		vertexCount = vertexCount & ~1;
-		numTrans = 0;
+	if (prim == GE_PRIM_RECTANGLES) {
+		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
 		drawBuffer = transformedExpanded;
-		TransformedVertex *trans = &transformedExpanded[0];
-		const u16 *indsIn = (const u16 *)inds;
-		u16 *newInds = inds + vertexCount;
-		u16 *indsOut = newInds;
-		maxIndex = 4 * (vertexCount / 2);
-		for (int i = 0; i < vertexCount; i += 2) {
-			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
-			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
-
-			// We have to turn the rectangle into two triangles, so 6 points.
-			// This is 4 verts + 6 indices.
-
-			// bottom right
-			trans[0] = transVtxBR;
-
-			// top right
-			trans[1] = transVtxBR;
-			trans[1].y = transVtxTL.y;
-			trans[1].v = transVtxTL.v;
-
-			// top left
-			trans[2] = transVtxBR;
-			trans[2].x = transVtxTL.x;
-			trans[2].y = transVtxTL.y;
-			trans[2].u = transVtxTL.u;
-			trans[2].v = transVtxTL.v;
-
-			// bottom left
-			trans[3] = transVtxBR;
-			trans[3].x = transVtxTL.x;
-			trans[3].u = transVtxTL.u;
-
-			// That's the four corners. Now process UV rotation.
-			if (throughmode)
-				RotateUVThrough(trans);
-			else
-				RotateUV(trans, flippedMatrix, flippedY);
-
-			// Triangle: BR-TR-TL
-			indsOut[0] = i * 2 + 0;
-			indsOut[1] = i * 2 + 1;
-			indsOut[2] = i * 2 + 2;
-			// Triangle: BL-BR-TL
-			indsOut[3] = i * 2 + 3;
-			indsOut[4] = i * 2 + 0;
-			indsOut[5] = i * 2 + 2;
-			trans += 4;
-			indsOut += 6;
-
-			numTrans += 6;
-		}
-		inds = newInds;
 		drawIndexed = true;
 
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
@@ -616,11 +616,15 @@ void SoftwareTransform(
 				// Take the bottom right alpha value of the first rect as the stencil value.
 				// Technically, each rect could individually fill its stencil, but most of the
 				// time they use the same one.
-				result->stencilValue = transformed[indsIn[1]].color0[3];
+				result->stencilValue = transformed[inds[1]].color0[3];
 			} else {
 				result->stencilValue = 0;
 			}
 		}
+	} else {
+		// We can simply draw the unexpanded buffer.
+		numTrans = vertexCount;
+		drawIndexed = true;
 	}
 
 	if (gstate.isModeClear()) {
