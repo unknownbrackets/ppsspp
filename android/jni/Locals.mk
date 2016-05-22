@@ -19,11 +19,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_STATIC_LIBRARIES := native libzip glslang-build
 LOCAL_LDLIBS := -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
 ifneq ($(NDK_DEBUG),1)
-  # Prettier stack traces are nice on other platforms.
-  # Maybe we can switch to storing the pre-stripped builds at some point.
-  ifeq ($(TARGET_ARCH_ABI),x86_64)
-    LOCAL_LDFLAGS += -Wl,--gc-sections -Wl,--exclude-libs,ALL
-  endif
+  LOCAL_LDFLAGS += -Wl,--gc-sections -Wl,--exclude-libs,ALL
 endif
 
 # ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
