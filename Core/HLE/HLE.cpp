@@ -657,6 +657,11 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 }
 
 void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason) {
+	if (!latestSyscall) {
+		GenericLog(level, t, file, line, "%08x - %s", res, formatted_reason);
+		return;
+	}
+
 	char formatted_args[4096];
 	const char *funcName = "?";
 	u32 funcFlags = 0;
