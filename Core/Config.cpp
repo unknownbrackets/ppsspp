@@ -1250,6 +1250,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		jitForcedOff = true;
 		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 	}
+
+	// Forced on for VC3.
+	if (iRewindFlipFrequency < 30) {
+		iRewindFlipFrequency = 30;
+	}
 }
 
 void Config::Save(const char *saveReason) {

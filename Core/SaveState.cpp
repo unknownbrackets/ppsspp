@@ -222,6 +222,24 @@ namespace SaveState
 			return next_ == first_;
 		}
 
+		std::vector<u8> &GetOldBuffer(int off) {
+			return LockedGetOldBuffer(off);
+		}
+
+		std::vector<u8> &LockedGetOldBuffer(int off) {
+			static std::vector<u8> buffer;
+			int n = (next_ - off + size_) % size_;
+			if (states_[n].empty()) {
+				if (n > 1)
+					return LockedGetOldBuffer(off - 1);
+				buffer.clear();
+				return buffer;
+			}
+
+			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
+			return buffer;
+		}
+
 		static const int BLOCK_SIZE;
 		// TODO: Instead, based on size of compressed state?
 		static const int BASE_USAGE_INTERVAL;
@@ -258,10 +276,19 @@ namespace SaveState
 	static const int SCREENSHOT_FAILURE_RETRIES = 15;
 	static StateRingbuffer rewindStates(REWIND_NUM_STATES);
 	// TODO: Any reason for this to be configurable?
-	const static float rewindMaxWallFrequency = 1.0f;
+	const static float rewindMaxWallFrequency = 0.5f;
 	static float rewindLastTime = 0.0f;
 	const int StateRingbuffer::BLOCK_SIZE = 8192;
 	const int StateRingbuffer::BASE_USAGE_INTERVAL = 15;
+
+	void SaveFromRewind(const std::string &filename, int statesBack) {
+		std::vector<u8> &buffer = rewindStates.GetOldBuffer(statesBack);
+		if (!buffer.empty()) {
+			u8 *ownedData = new u8[buffer.size()];
+			memcpy(ownedData, &buffer[0], buffer.size());
+			CChunkFileReader::SaveFile(filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, ownedData, buffer.size());
+		}
+	}
 
 	void SaveStart::DoState(PointerWrap &p)
 	{

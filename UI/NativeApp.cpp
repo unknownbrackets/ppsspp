@@ -962,28 +962,26 @@ void TakeVC3Screenshot(std::vector<std::string> string_ids) {
 		}
 	}
 
-	// First, find a free filename.
 	static int i = 0;
-	char temp[4096];
+	char screenshotFilename[4096];
+	char stateFilename[4096];
 
-	while (i < 1000000) {
-		if (g_Config.bScreenshotsAsPNG)
-			sprintf(temp, "%s/screen%05d-%s.png", path.c_str(), i, string_ids_flat.c_str());
-		else
-			sprintf(temp, "%s/screen%05d-%s.jpg", path.c_str(), i, string_ids_flat.c_str());
-		FileInfo info;
-		if (!getFileInfo(temp, &info))
-			break;
-		i++;
-	}
+	if (g_Config.bScreenshotsAsPNG)
+		sprintf(screenshotFilename, "%s/vc3_%05d-%s.png", path.c_str(), i, string_ids_flat.c_str());
+	else
+		sprintf(screenshotFilename, "%s/vc3_%05d-%s.jpg", path.c_str(), i, string_ids_flat.c_str());
+	sprintf(stateFilename, "%s/vc3_%05d-%s.ppst", path.c_str(), i, string_ids_flat.c_str());
+
 	i++;
 
-	bool success = TakeGameScreenshot(temp, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_DISPLAY);
+	bool success = TakeGameScreenshot(screenshotFilename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_DISPLAY);
 	if (!success) {
 		I18NCategory *err = GetI18NCategory("Error");
 		osm.Show(err->T("Could not save screenshot file"));
 	}
 #endif
+
+	SaveState::SaveFromRewind(stateFilename, 5);
 }
 
 void TakeScreenshot() {
