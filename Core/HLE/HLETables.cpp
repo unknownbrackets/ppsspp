@@ -302,5 +302,6 @@ void RegisterAllModules() {
 	Register_sceUsbMic();
 
 	// add new modules here.
+	Register_scePower_driver();
+	Register_sceRtc_driver();
 }
-

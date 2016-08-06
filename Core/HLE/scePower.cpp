@@ -627,6 +627,10 @@ void Register_scePower() {
 	RegisterModule("scePower",ARRAY_SIZE(scePower),scePower);
 }
 
+void Register_scePower_driver() {
+	RegisterModule("scePower_driver",ARRAY_SIZE(scePower),scePower);
+}
+
 void Register_sceSuspendForUser() {
 	RegisterModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
 }

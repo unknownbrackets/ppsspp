@@ -869,6 +869,16 @@ const HLEFunction ThreadManForKernel[] =
 	{0xCEADEB47, &WrapI_U<sceKernelDelayThread>,                     "sceKernelDelayThread",                      'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x446D8DE6, &WrapI_CUUIUU<sceKernelCreateThread>,               "sceKernelCreateThread",                     'i', "sxxixx", HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
 	{0xF475845D, &WrapI_IIU<sceKernelStartThread>,                   "sceKernelStartThread",                      'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
+
+	// TODO: These probably have different behavior from kernel.
+	{0x17c1684e, &WrapU_UU<sceKernelReferThreadStatus>,              "sceKernelReferThreadStatus",                'x', "xx",     HLE_KERNEL_SYSCALL },
+	{0x809ce29b, &WrapV_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'v', "i",      HLE_KERNEL_SYSCALL },
+	{0x9944f31f, &WrapI_I<sceKernelSuspendThread>,                   "sceKernelSuspendThread",                    'i', "i",      HLE_KERNEL_SYSCALL },
+	{0x75156e8f, &WrapI_I<sceKernelResumeThread>,                    "sceKernelResumeThread",                     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0xdb738f35, &WrapI_U<sceKernelGetSystemTime>,                   "sceKernelGetSystemTime",                    'i', "x",      HLE_KERNEL_SYSCALL },
+	{0x293b45b8, &WrapI_V<sceKernelGetThreadId>,                     "sceKernelGetThreadId",                      'i', "",       HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
+	{0x627E6F3A, &WrapI_U<sceKernelReferSystemStatus>,               "sceKernelReferSystemStatus",                'i', "x",      HLE_KERNEL_SYSCALL },
+	{0x94416130, &WrapU_UUUU<sceKernelGetThreadmanIdList>,           "sceKernelGetThreadmanIdList",               'x', "xxxx",   HLE_KERNEL_SYSCALL },
 };
 
 void Register_ThreadManForUser()

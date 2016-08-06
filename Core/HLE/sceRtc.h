@@ -31,6 +31,8 @@ int32_t RtcBaseTime(int32_t *micro = nullptr);
 void RtcSetBaseTime(int32_t seconds, int32_t micro = 0);
 
 void Register_sceRtc();
+void Register_sceRtc_driver();
+
 void __RtcInit();
 void __RtcDoState(PointerWrap &p);
 

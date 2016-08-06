@@ -23,4 +23,5 @@ void __PowerInit();
 void __PowerDoState(PointerWrap &p);
 
 void Register_scePower();
+void Register_scePower_driver();
 void Register_sceSuspendForUser();

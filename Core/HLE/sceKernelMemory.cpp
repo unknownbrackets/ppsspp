@@ -2295,9 +2295,39 @@ const HLEFunction SysMemUserForUser[] = {
 };
 
 const HLEFunction SysMemForKernel[] = {
-	{0x636C953B, nullptr,                                         "SysMemForKernel_636c953b",              '?', ""        },
-	{0xC9805775, nullptr,                                         "SysMemForKernel_c9805775",              '?', ""        },
-	{0x1C1FBFE7, nullptr,                                         "SysMemForKernel_1c1fbfe7",              '?', ""        },
+	{0x636C953B, nullptr,                                         "SysMemForKernel_636c953b",              '?', "",       HLE_KERNEL_SYSCALL },
+	{0xC9805775, nullptr,                                         "SysMemForKernel_c9805775",              '?', "",       HLE_KERNEL_SYSCALL },
+	{0x1C1FBFE7, nullptr,                                         "SysMemForKernel_1c1fbfe7",              '?', "",       HLE_KERNEL_SYSCALL },
+	{0XA291F107, &WrapU_V<sceKernelMaxFreeMemSize>,               "sceKernelMaxFreeMemSize",               'x', "",       HLE_KERNEL_SYSCALL },
+	{0XF919F628, &WrapU_V<sceKernelTotalFreeMemSize>,             "sceKernelTotalFreeMemSize",             'x', "",       HLE_KERNEL_SYSCALL },
+	{0X3FC9AE6A, &WrapU_V<sceKernelDevkitVersion>,                "sceKernelDevkitVersion",                'x', ""  ,     HLE_KERNEL_SYSCALL },
+	{0X237DBD4F, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",         'i', "isixx",  HLE_KERNEL_SYSCALL },
+	{0XB6D61D02, &WrapI_I<sceKernelFreePartitionMemory>,          "sceKernelFreePartitionMemory",          'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X9D9A5BA1, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",             'x', "i",      HLE_KERNEL_SYSCALL },
+	{0X13A5ABEF, &WrapI_C<sceKernelPrintf>,                       "sceKernelPrintf",                       'i', "s",      HLE_KERNEL_SYSCALL },
+	{0X7591C7DB, &WrapI_I<sceKernelSetCompiledSdkVersion>,        "sceKernelSetCompiledSdkVersion",        'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X342061E5, &WrapI_I<sceKernelSetCompiledSdkVersion370>,     "sceKernelSetCompiledSdkVersion370",     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X315AD3A0, &WrapI_I<sceKernelSetCompiledSdkVersion380_390>, "sceKernelSetCompiledSdkVersion380_390", 'i', "i",      HLE_KERNEL_SYSCALL },
+	{0XEBD5C3E6, &WrapI_I<sceKernelSetCompiledSdkVersion395>,     "sceKernelSetCompiledSdkVersion395",     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X057E7380, &WrapI_I<sceKernelSetCompiledSdkVersion401_402>, "sceKernelSetCompiledSdkVersion401_402", 'i', "i",      HLE_KERNEL_SYSCALL },
+	{0XF77D77CB, &WrapI_I<sceKernelSetCompilerVersion>,           "sceKernelSetCompilerVersion",           'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X91DE343C, &WrapI_I<sceKernelSetCompiledSdkVersion500_505>, "sceKernelSetCompiledSdkVersion500_505", 'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X7893F79A, &WrapI_I<sceKernelSetCompiledSdkVersion507>,     "sceKernelSetCompiledSdkVersion507",     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X35669D4C, &WrapI_I<sceKernelSetCompiledSdkVersion600_602>, "sceKernelSetCompiledSdkVersion600_602", 'i', "i",      HLE_KERNEL_SYSCALL },  //??
+	{0X1B4217BC, &WrapI_I<sceKernelSetCompiledSdkVersion603_605>, "sceKernelSetCompiledSdkVersion603_605", 'i', "i",      HLE_KERNEL_SYSCALL },
+	{0X358CA1BB, &WrapI_I<sceKernelSetCompiledSdkVersion606>,     "sceKernelSetCompiledSdkVersion606",     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0XFC114573, &WrapI_V<sceKernelGetCompiledSdkVersion>,        "sceKernelGetCompiledSdkVersion",        'i', "",       HLE_KERNEL_SYSCALL },
+	{0X2A3E5280, nullptr,                                         "sceKernelQueryMemoryInfo",              '?', "",       HLE_KERNEL_SYSCALL },
+	{0XACBD88CA, &WrapU_V<SysMemUserForUser_ACBD88CA>,            "SysMemUserForUser_ACBD88CA",            'x', "",       HLE_KERNEL_SYSCALL },
+	{0X945E45DA, &WrapU_V<SysMemUserForUser_945E45DA>,            "SysMemUserForUser_945E45DA",            'x', "",       HLE_KERNEL_SYSCALL },
+	{0XA6848DF8, nullptr,                                         "sceKernelSetUsersystemLibWork",         '?', "",       HLE_KERNEL_SYSCALL },
+	{0X6231A71D, nullptr,                                         "sceKernelSetPTRIG",                     '?', "",       HLE_KERNEL_SYSCALL },
+	{0X39F49610, nullptr,                                         "sceKernelGetPTRIG",                     '?', "",       HLE_KERNEL_SYSCALL },
+	// Obscure raw block API
+	{0XDB83A952, &WrapU_UU<GetMemoryBlockPtr>,                    "SysMemUserForUser_DB83A952",            'x', "xx",     HLE_KERNEL_SYSCALL },  // GetMemoryBlockAddr
+	{0X50F61D8A, &WrapU_U<FreeMemoryBlock>,                       "SysMemUserForUser_50F61D8A",            'x', "x",      HLE_KERNEL_SYSCALL },  // FreeMemoryBlock
+	{0XFE707FDF, &WrapU_CUUU<AllocMemoryBlock>,                   "SysMemUserForUser_FE707FDF",            'x', "sxxx",   HLE_KERNEL_SYSCALL },  // AllocMemoryBlock
+	{0XD8DE5C1E, &WrapU_V<SysMemUserForUser_D8DE5C1E>,            "SysMemUserForUser_D8DE5C1E",            'x', "",       HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {
