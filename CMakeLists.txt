@@ -1527,6 +1527,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLE.cpp
 	Core/HLE/HLE.h
 	Core/HLE/ReplaceTables.cpp
+	Core/HLE/Plugins.cpp
 	Core/HLE/ReplaceTables.h
 	Core/HLE/HLEHelperThread.cpp
 	Core/HLE/HLEHelperThread.h

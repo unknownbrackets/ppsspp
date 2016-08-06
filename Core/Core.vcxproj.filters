@@ -538,6 +538,9 @@
     <ClCompile Include="HLE\proAdhocServer.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\Plugins.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
     <ClCompile Include="..\ext\udis86\itab.c">
       <Filter>Ext\udis86</Filter>
     </ClCompile>
@@ -1188,6 +1191,9 @@
     </ClInclude>
     <ClInclude Include="HLE\proAdhocServer.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\Plugins.h">
+      <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\udis86\decode.h">
       <Filter>Ext\udis86</Filter>

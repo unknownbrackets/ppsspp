@@ -20,6 +20,7 @@
 #include <vector>
 #include "Common/CommonTypes.h"
 #include "Core/ELF/ElfTypes.h"
+#include "Core/Util/BlockAllocator.h"
 
 enum {
 	R_MIPS_NONE,

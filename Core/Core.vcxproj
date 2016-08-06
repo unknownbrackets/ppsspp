@@ -435,6 +435,7 @@
     </ClCompile>
     <ClCompile Include="HLE\HLEHelperThread.cpp" />
     <ClCompile Include="HLE\HLETables.cpp" />
+    <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\proAdhoc.cpp" />
     <ClCompile Include="HLE\proAdhocServer.cpp" />
     <ClCompile Include="HLE\ReplaceTables.cpp" />
@@ -954,6 +955,7 @@
     <ClInclude Include="HLE\HLEHelperThread.h" />
     <ClInclude Include="HLE\HLETables.h" />
     <ClInclude Include="HLE\KernelWaitHelpers.h" />
+    <ClInclude Include="HLE\Plugins.h" />
     <ClInclude Include="HLE\proAdhoc.h" />
     <ClInclude Include="HLE\proAdhocServer.h" />
     <ClInclude Include="HLE\ReplaceTables.h" />
