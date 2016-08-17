@@ -656,27 +656,72 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 	// Note: UpdateFromMemory() is still called later.
 	// This is a special case where we have extra information prior to the invalidation.
 
-	// TODO: Could possibly be an offset...
-	VirtualFramebuffer *vfb = GetVFBAt(addr);
-	if (vfb) {
-		if (vfb->format != fmt || vfb->drawnFormat != fmt) {
-			DEBUG_LOG(ME, "Changing format for %08x from %d to %d", addr, vfb->drawnFormat, fmt);
-			vfb->format = fmt;
-			vfb->drawnFormat = fmt;
+	// Find even if we're uploading to an offset.
+	const u32 masked_addr = addr & 0x3FFFFFFF;
+	VirtualFramebuffer *match = nullptr;
+	bool exact = false;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *v = vfbs_[i];
+		if (v->fb_address == masked_addr) {
+			// Could check w too but whatever
+			if (match == nullptr || !exact || match->last_frame_render < v->last_frame_render) {
+				match = v;
+				exact = true;
+			}
+		} else if (match == nullptr) {
+			if (v->fb_address <= masked_addr && v->fb_address + FramebufferByteSize(v) > masked_addr) {
+				match = v;
+				exact = false;
+			}
+		}
+	}
+
+	if (match && match->fb_address == masked_addr) {
+		if (match->format != fmt || match->drawnFormat != fmt) {
+			DEBUG_LOG(ME, "Changing format for %08x from %d to %d", addr, match->drawnFormat, fmt);
+			match->format = fmt;
+			match->drawnFormat = fmt;
 
 			// Let's count this as a "render".  This will also force us to use the correct format.
-			vfb->last_frame_render = gpuStats.numFlips;
+			match->last_frame_render = gpuStats.numFlips;
 		}
 
-		if (vfb->fb_stride < width) {
-			DEBUG_LOG(ME, "Changing stride for %08x from %d to %d", addr, vfb->fb_stride, width);
+		if (match->fb_stride < width) {
+			DEBUG_LOG(ME, "Changing stride for %08x from %d to %d", addr, match->fb_stride, width);
 			const int bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
-			ResizeFramebufFBO(vfb, width, size / (bpp * width));
+			ResizeFramebufFBO(match, width, size / (bpp * width));
 			// Resizing may change the viewport/etc.
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
-			vfb->fb_stride = width;
+			match->fb_stride = width;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
-			vfb->width = width;
+			match->width = width;
+		}
+	} else if (match) {
+		// Okay, we're at an offset... do we go outside?
+		u32 match_size = FramebufferByteSize(match);
+		u32 match_end = match->fb_address + match_size;
+		if (masked_addr + size > match_end) {
+			const int bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
+			const int match_h = match_size / (bpp * width);
+			const int video_h = size / (bpp * width);
+			const int overage = (masked_addr + size - match->fb_address) / (bpp * width);
+
+			// If we're this far outside the framebuffer, most likely the framebuffer is wrong.
+			if (overage >= match_h / 4) {
+				// Not rendered for a whole frame?  Let's assume it's not used anymore.
+				if (match->last_frame_render < gpuStats.numFlips - 1) {
+					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", match->fb_address, match->width, match->height, match->format);
+					DestroyFramebuf(match);
+					// Find and remove the vfb.
+					vfbs_.erase(std::remove(vfbs_.begin(), vfbs_.end(), match), vfbs_.end());
+				} else if (match_h < video_h && overage < video_h / 4) {
+					// Let's try sizing it up - maybe it's just too short.
+					ResizeFramebufFBO(match, width, match_h + overage);
+					match->fb_stride = width;
+					// This might be a bit wider than necessary, but we'll redetect on next render.
+					match->width = width;
+				}
+			}
 		}
 	}
 }
