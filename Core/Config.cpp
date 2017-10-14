@@ -487,6 +487,10 @@ static ConfigSetting generalSettings[] = {
 
 	ReportedConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, true, true),
 
+	ConfigSetting("VC3SaveScreenshot", &g_Config.bVC3SaveScreenshot, true, true, true),
+	ConfigSetting("VC3SaveState", &g_Config.bVC3SaveState, true, true, true),
+	ConfigSetting("VC3LogStrings", &g_Config.bVC3LogStrings, true, true, true),
+	ConfigSetting("VC3LookupServer", &g_Config.sVC3LookupServer, "", true, true),
 	ConfigSetting(false),
 };
 
@@ -1252,7 +1256,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	// Forced on for VC3.
-	if (iRewindFlipFrequency < 30) {
+	if (bVC3SaveState && iRewindFlipFrequency < 30) {
 		iRewindFlipFrequency = 30;
 	}
 }

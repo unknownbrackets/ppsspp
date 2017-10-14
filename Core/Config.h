@@ -121,6 +121,12 @@ public:
 	bool bRemoteDebuggerOnStartup;
 	bool bMemStickInserted;
 
+	bool bVC3SaveScreenshot;
+	bool bVC3SaveState;
+	bool bVC3LogStrings;
+	bool bVC3LogStringSequence;
+	std::string sVC3LookupServer;
+
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
 	int iInternalScreenRotation;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
 
