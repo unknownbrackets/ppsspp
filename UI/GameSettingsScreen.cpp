@@ -72,6 +72,8 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
+extern bool vc3_cache_reset;
+
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
@@ -188,6 +190,30 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(settingInfo_);
 
 	// TODO: These currently point to global settings, not game specific ones.
+
+	// VC3
+	ViewGroup *vc3SettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	vc3SettingsScroll->SetTag("GameSettingsVC3");
+	LinearLayout *vc3Settings = new LinearLayout(ORIENT_VERTICAL);
+	vc3Settings->SetSpacing(0);
+	vc3SettingsScroll->Add(vc3Settings);
+	tabHolder->AddTab(ms->T("VC3"), vc3SettingsScroll);
+
+	vc3Settings->Add(new ItemHeader(gr->T("Translation Tools")));
+	vc3Settings->Add(new CheckBox(&g_Config.bVC3SaveScreenshot, gr->T("Save screenshots on new strings")));
+	CheckBox *vc3State = vc3Settings->Add(new CheckBox(&g_Config.bVC3SaveState, gr->T("Save state on new strings")));
+	vc3State->OnClick.Add([=](EventParams &e) {
+		if (g_Config.bVC3SaveState && g_Config.iRewindFlipFrequency < 30) {
+			g_Config.iRewindFlipFrequency = 30;
+			settingInfo_->Show(gr->T("Enabled rewind (may cause hitching)"), e.v);
+		}
+		return UI::EVENT_CONTINUE;
+	});
+	vc3Settings->Add(new CheckBox(&g_Config.bVC3LogStrings, gr->T("Write new strings to log")));
+	CheckBox *vc3Sequence = vc3Settings->Add(new CheckBox(&g_Config.bVC3LogStringSequence, gr->T("Log when strings are not in sequence")));
+	vc3Sequence->SetEnabledPtr(&g_Config.bVC3LogStrings);
+	vc3Settings->Add(new PopupTextInputChoice(&g_Config.sVC3LookupServer, n->T("String lookup server"), "", 255, screenManager()));
+	vc3Settings->Add(new CheckBox(&vc3_cache_reset, gr->T("Reset string cache")));
 
 	// Graphics
 	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));

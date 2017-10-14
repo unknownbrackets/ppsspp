@@ -23,6 +23,7 @@
 
 #include "math/math_util.h"
 #include "profiler/profiler.h"
+#include "util/text/utf8.h"
 
 #include "GPU/GPUState.h"
 
@@ -40,6 +41,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/HLE/sceKernelMemory.h"
 
 #include "RegCache.h"
 #include "Jit.h"
@@ -51,6 +53,9 @@
 static const int VC3_FRAME_DELAY = 25;
 std::vector<std::string> vc3_screenshot_special;
 int vc3_screenshot_special_frame;
+bool vc3_game_reset = true;
+bool vc3_cache_reset = true;
+u32 vc3_replace_area = 0;
 
 namespace MIPSComp
 {
@@ -352,27 +357,63 @@ void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
 }
 	*/
 
+	static std::map<std::string, std::string> replacements;
 	static std::set<std::string> doneStrings;
+	static int prev_n = 0;
+
+	if (vc3_game_reset) {
+		// Restarted, so this is no good anymore.
+		vc3_replace_area = 0;
+		prev_n = 0;
+		vc3_game_reset = false;
+	}
+	if (vc3_cache_reset) {
+		replacements.clear();
+		doneStrings.clear();
+		vc3_cache_reset = false;
+	}
 
 	// Guess.
 	const char *strClass = Memory::GetCharPointer(PARAM(0));
 	const char *str = Memory::GetCharPointer(PARAM(1));
 
-	if (doneStrings.insert(str).second) {
-		char type = 0;
-		int n = 0;
-		if (sscanf(str, "X%d: ", &n) == 1)
-			type = 'X';
-		else if (sscanf(str, "P%d: ", &n) == 1)
-			type = 'P';
+	if (vc3_replace_area == 0) {
+		u32 size = 16384;
+		vc3_replace_area = kernelMemory.Alloc(size, true, "VC3TXT");
+	}
 
+	auto replace = replacements.find(str);
+	if (replace != replacements.end() && vc3_replace_area) {
+		const auto &newstr = replace->second;
+		Memory::MemcpyUnchecked(vc3_replace_area, newstr.c_str(), (u32)newstr.length() + 1);
+		PARAM(1) = vc3_replace_area;
+	}
+
+	char type = 0;
+	int n = 0;
+	if (sscanf(str, "X%d: ", &n) == 1)
+		type = 'X';
+	else if (sscanf(str, "P%d: ", &n) == 1)
+		type = 'P';
+
+	// TODO: Lookup string and get updated translation.
+
+	if (doneStrings.insert(str).second) {
 		if (type != 0) {
 			char temp[32];
 			snprintf(temp, sizeof(temp), "%c%d", type, n);
-			vc3_screenshot_special.push_back(temp);
-			vc3_screenshot_special_frame = gpuStats.numFlips + VC3_FRAME_DELAY;
+			if (g_Config.bVC3SaveScreenshot || g_Config.bVC3SaveState) {
+				vc3_screenshot_special.push_back(temp);
+				vc3_screenshot_special_frame = gpuStats.numFlips + VC3_FRAME_DELAY;
+			}
 		}
-		NOTICE_LOG(HLE, "%s: %s", strClass, str);
+
+		if (n != prev_n + 1 && g_Config.bVC3LogStringSequence)
+			ERROR_LOG(HLE, "NOTE: Skipped a string id?");
+		prev_n = n;
+
+		if (g_Config.bVC3LogStrings)
+			NOTICE_LOG(HLE, "%s: %s", strClass, str);
 	}
 }
 

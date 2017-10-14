@@ -92,6 +92,9 @@
 20: [MIPS32 R4K 00000000 ]: Loader: Loadable Segment Copied to 08c47220, size 000b2fe4
 */
 
+extern bool vc3_game_reset;
+extern u32 vc3_replace_area;
+
 static bool kernelRunning = false;
 KernelObjectPool kernelObjects;
 KernelStats kernelStats;
@@ -154,6 +157,9 @@ void __KernelInit()
 
 	kernelRunning = true;
 	INFO_LOG(SCEKERNEL, "Kernel initialized.");
+
+	vc3_game_reset = true;
+	vc3_replace_area = 0;
 }
 
 void __KernelShutdown()
@@ -208,6 +214,12 @@ void __KernelShutdown()
 
 void __KernelDoState(PointerWrap &p)
 {
+	// Hack to make sure save states are compatible.
+	if (vc3_replace_area) {
+		kernelMemory.FreeExact(vc3_replace_area);
+		vc3_replace_area = 0;
+	}
+
 	{
 		auto s = p.Section("Kernel", 1, 2);
 		if (!s)
