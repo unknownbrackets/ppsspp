@@ -21,8 +21,11 @@
 #include <algorithm>
 #include <iterator>
 
+#include "base/stringutil.h"
+#include "net/http_client.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
+#include "util/text/shiftjis.h"
 #include "util/text/utf8.h"
 
 #include "GPU/GPUState.h"
@@ -402,7 +405,41 @@ void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
 	else if (sscanf(str, "P%d: ", &n) == 1)
 		type = 'P';
 
-	// TODO: Lookup string and get updated translation.
+	if (!wasReplaced && type != 0 && g_Config.sVC3LookupServer.length() != 0) {
+		http::Client httpClient;
+
+		if (httpClient.Resolve(g_Config.sVC3LookupServer.c_str(), 80)) {
+			std::string uri = StringFromFormat("/lookup?id=%c%d", type, n);
+			Buffer output;
+
+			int result = -1;
+			if (httpClient.Connect()) {
+				result = httpClient.GET(uri.c_str(), &output);
+				httpClient.Disconnect();
+			}
+
+			if (result >= 200 && result < 300) {
+				std::string newstr;
+				output.TakeAll(&newstr);
+
+				// Don't cache if same.  The user may want to change and see it without explicitly flushing cache.
+				if (newstr != str) {
+					DEBUG_LOG(HLE, "Got replacement from server: %c%d = %s", type, n, newstr.c_str());
+					replacements[str] = newstr;
+
+					Memory::MemcpyUnchecked(vc3_replace_area, newstr.c_str(), (u32)newstr.length() + 1);
+					PARAM(1) = vc3_replace_area;
+					wasReplaced = true;
+				} else {
+					DEBUG_LOG(HLE, "Server didn't have an update for: %s", newstr.c_str());
+				}
+			} else {
+				ERROR_LOG(HLE, "Error response %03d from VC3 server: %s", result, g_Config.sVC3LookupServer.c_str());
+			}
+		} else {
+			ERROR_LOG(HLE, "Could not look up VC3 server: %s", g_Config.sVC3LookupServer.c_str());
+		}
+	}
 
 	if (!wasReplaced && type != 0 && g_Config.bVC3StripIDs) {
 		// Skip over the ID in the actual param.
