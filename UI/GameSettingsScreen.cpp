@@ -209,6 +209,7 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
+	vc3Settings->Add(new CheckBox(&g_Config.bVC3StripIDs, gr->T("Hide string IDs on screen")));
 	vc3Settings->Add(new CheckBox(&g_Config.bVC3LogStrings, gr->T("Write new strings to log")));
 	CheckBox *vc3Sequence = vc3Settings->Add(new CheckBox(&g_Config.bVC3LogStringSequence, gr->T("Log when strings are not in sequence")));
 	vc3Sequence->SetEnabledPtr(&g_Config.bVC3LogStrings);

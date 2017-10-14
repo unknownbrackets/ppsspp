@@ -489,6 +489,7 @@ static ConfigSetting generalSettings[] = {
 
 	ConfigSetting("VC3SaveScreenshot", &g_Config.bVC3SaveScreenshot, true, true, true),
 	ConfigSetting("VC3SaveState", &g_Config.bVC3SaveState, true, true, true),
+	ConfigSetting("VC3StripIDs", &g_Config.bVC3StripIDs, false, true, true),
 	ConfigSetting("VC3LogStrings", &g_Config.bVC3LogStrings, true, true, true),
 	ConfigSetting("VC3LogStringSequence", &g_Config.bVC3LogStringSequence, true, true, true),
 	ConfigSetting("VC3LookupServer", &g_Config.sVC3LookupServer, "", true, true),

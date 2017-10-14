@@ -123,6 +123,7 @@ public:
 
 	bool bVC3SaveScreenshot;
 	bool bVC3SaveState;
+	bool bVC3StripIDs;
 	bool bVC3LogStrings;
 	bool bVC3LogStringSequence;
 	std::string sVC3LookupServer;

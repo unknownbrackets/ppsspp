@@ -376,6 +376,11 @@ void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
 	// Guess.
 	const char *strClass = Memory::GetCharPointer(PARAM(0));
 	const char *str = Memory::GetCharPointer(PARAM(1));
+	bool wasReplaced = false;
+
+	if (!Memory::IsValidAddress(PARAM(1))) {
+		return;
+	}
 
 	if (vc3_replace_area == 0) {
 		u32 size = 16384;
@@ -387,6 +392,7 @@ void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
 		const auto &newstr = replace->second;
 		Memory::MemcpyUnchecked(vc3_replace_area, newstr.c_str(), (u32)newstr.length() + 1);
 		PARAM(1) = vc3_replace_area;
+		wasReplaced = true;
 	}
 
 	char type = 0;
@@ -398,7 +404,25 @@ void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
 
 	// TODO: Lookup string and get updated translation.
 
-	if (doneStrings.insert(str).second) {
+	if (!wasReplaced && type != 0 && g_Config.bVC3StripIDs) {
+		// Skip over the ID in the actual param.
+		u32 strPtr = PARAM(1);
+		while (Memory::IsValidAddress(strPtr)) {
+			int c = Memory::ReadUnchecked_U8(strPtr);
+			if (c == 0) {
+				break;
+			}
+			if (c == ':' && Memory::ReadUnchecked_U8(strPtr + 1) == ' ') {
+				strPtr += 2;
+				break;
+			}
+			strPtr++;
+		}
+
+		PARAM(1) = strPtr;
+	}
+
+	if (!wasReplaced && doneStrings.insert(str).second) {
 		if (type != 0) {
 			char temp[32];
 			snprintf(temp, sizeof(temp), "%c%d", type, n);
