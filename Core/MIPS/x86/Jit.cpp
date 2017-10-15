@@ -423,8 +423,10 @@ void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
 				output.TakeAll(&newstr);
 
 				// Don't cache if same.  The user may want to change and see it without explicitly flushing cache.
-				if (newstr != str) {
-					DEBUG_LOG(HLE, "Got replacement from server: %c%d = %s", type, n, newstr.c_str());
+				// Also check for the ID, since live replace doesn't work for some long strings (when the game breaks them up.)
+				const std::string oldPrefix = StringFromFormat("%c%d: ", type, n);
+				if (newstr != str && !startsWith(newstr, oldPrefix)) {
+					NOTICE_LOG(HLE, "Got replacement from server: %c%d = %s", type, n, newstr.c_str());
 					replacements[str] = newstr;
 
 					Memory::MemcpyUnchecked(vc3_replace_area, newstr.c_str(), (u32)newstr.length() + 1);
