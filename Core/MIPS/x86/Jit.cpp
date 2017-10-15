@@ -26,6 +26,7 @@
 #include "math/math_util.h"
 #include "profiler/profiler.h"
 #include "util/text/shiftjis.h"
+#include "util/text/shiftjis_table.h"
 #include "util/text/utf8.h"
 
 #include "GPU/GPUState.h"
@@ -475,8 +476,37 @@ void z_un_0884ee40(const UnkStruct1 *info, const char *txt) {
 			ERROR_LOG(HLE, "NOTE: Skipped a string id?");
 		prev_n = n;
 
-		if (g_Config.bVC3LogStrings)
-			NOTICE_LOG(HLE, "%s: %s", strClass, str);
+		auto ConvertSJISToUTF8 = [](std::string &buffer, const unsigned char *src) {
+			// Just to be safe.
+			size_t n = strlen((const char *)src);
+			if (buffer.size() < n * 4) {
+				buffer.resize(n * 4);
+			}
+
+			size_t pos = 0;
+			for (size_t i = 0; i < n; ++i) {
+				uint8_t c0 = src[i];
+				if (from_sjis_table[c0] > 0) {
+					pos += UTF8::encode(&buffer[pos], from_sjis_table[c0]);
+				} else if (i + 1 < n) {
+					uint8_t c1 = src[++i];
+					uint32_t wide = (c0 << 8) | c1;
+					if (from_sjis_table[wide] > 0) {
+						pos += UTF8::encode(&buffer[pos], from_sjis_table[wide]);
+					}
+				}
+			}
+			buffer.resize(pos);
+
+			return buffer;
+		};
+
+		if (g_Config.bVC3LogStrings) {
+			static std::string utf8Buffer;
+			ConvertSJISToUTF8(utf8Buffer, (const unsigned char *)str);
+
+			NOTICE_LOG(HLE, "%s: %s", strClass, utf8Buffer.c_str());
+		}
 	}
 }
 
