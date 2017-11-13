@@ -126,8 +126,8 @@ std::string GetVideoCardDriverVersion() {
 		return retvalue;
 	}
 
-	IWbemLocator *pIWbemLocator = NULL;
-	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER,
+	IWbemLocator *pIWbemLocator = nullptr;
+	hr = CoCreateInstance(__uuidof(WbemLocator), nullptr, CLSCTX_INPROC_SERVER,
 		__uuidof(IWbemLocator), (LPVOID *)&pIWbemLocator);
 	if (FAILED(hr)) {
 		CoUninitialize();
@@ -135,9 +135,9 @@ std::string GetVideoCardDriverVersion() {
 	}
 
 	BSTR bstrServer = SysAllocString(L"\\\\.\\root\\cimv2");
-	IWbemServices *pIWbemServices;
+	IWbemServices *pIWbemServices = nullptr;
 	hr = pIWbemLocator->ConnectServer(bstrServer, NULL, NULL, 0L, 0L, NULL,	NULL, &pIWbemServices);
-	if (FAILED(hr)) {
+	if (FAILED(hr) || !pIWbemServices) {
 		pIWbemLocator->Release();
 		SysFreeString(bstrServer);
 		CoUninitialize();
@@ -148,23 +148,92 @@ std::string GetVideoCardDriverVersion() {
 		NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL,EOAC_DEFAULT);
 
 	BSTR bstrWQL = SysAllocString(L"WQL");
-	BSTR bstrPath = SysAllocString(L"select * from Win32_VideoController");
-	IEnumWbemClassObject* pEnum;
+	BSTR bstrPath = SysAllocString(L"SELECT * FROM Win32_VideoController");
+	IEnumWbemClassObject *pEnum = nullptr;
 	hr = pIWbemServices->ExecQuery(bstrWQL, bstrPath, WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 
-	ULONG uReturned;
-	VARIANT var;
-	IWbemClassObject* pObj = NULL;
-	if (!FAILED(hr)) {
-		hr = pEnum->Next(WBEM_INFINITE, 1, &pObj, &uReturned);
-	}
+	ULONG uReturned = 0;
+	IWbemClassObject *pObj = nullptr;
+	const long DRIVER_INFO_TIMEOUT = 5000;
 
-	if (!FAILED(hr) && uReturned) {
-		hr = pObj->Get(L"DriverVersion", 0, &var, NULL, NULL);
-		if (SUCCEEDED(hr)) {
-			char str[MAX_PATH];
-			WideCharToMultiByte(CP_ACP, 0, var.bstrVal, -1, str, sizeof(str), NULL, NULL);
-			retvalue = str;
+	auto retrievePropertyAsString = [&](const wchar_t *name) -> std::string {
+		VARIANT var{};
+		HRESULT result = pObj->Get(name, 0, &var, nullptr, nullptr);
+		if (FAILED(result)) {
+			return "?";
+		}
+
+		char buffer[512];
+		switch (var.vt) {
+		case VT_NULL:
+			return "";
+
+		case VT_BSTR:
+			WideCharToMultiByte(CP_ACP, 0, var.bstrVal, -1, buffer, sizeof(buffer), nullptr, nullptr);
+			return buffer;
+
+		case VT_I1:
+			return StringFromFormat("%d", var.cVal);
+		case VT_UI1:
+			return StringFromFormat("%d", var.bVal);
+		case VT_UI2:
+			return StringFromFormat("%u", var.uiVal);
+		case VT_I2:
+			return StringFromFormat("%d", var.iVal);
+		case VT_UI4:
+		case VT_UINT:
+			return StringFromFormat("%u", var.ulVal);
+		case VT_I4:
+		case VT_INT:
+			return StringFromFormat("%d", var.lVal);
+		case VT_UI8:
+			return StringFromFormat("%llu", var.ullVal);
+		case VT_I8:
+			return StringFromFormat("%lld", var.llVal);
+
+		case VT_R4:
+			return StringFromFormat("%f", var.fltVal);
+		case VT_R8:
+			return StringFromFormat("%f", var.dblVal);
+
+		case VT_BOOL:
+			return StringFromFormat("%d", var.boolVal == 0 ? 0 : 1);
+
+		case VT_DATE:
+		{
+			SYSTEMTIME systime{};
+			VariantTimeToSystemTime(var.date, &systime);
+			return StringFromFormat("%04d%02d%02d", systime.wYear, systime.wMonth, systime.wDay);
+		}
+
+		default:
+			return "UNSUPPORTED";
+		}
+	};
+
+	if (!FAILED(hr)) {
+		hr = pEnum->Next(DRIVER_INFO_TIMEOUT, 1, &pObj, &uReturned);
+		while (!FAILED(hr) && uReturned > 0) {
+			std::string desc = retrievePropertyAsString(L"Description");
+			std::string caption = retrievePropertyAsString(L"Caption");
+			std::string mem = retrievePropertyAsString(L"AdapterRAM");
+			std::string hz = retrievePropertyAsString(L"CurrentRefreshRate");
+			std::string dt = retrievePropertyAsString(L"DriverDate");
+			std::string ver = retrievePropertyAsString(L"DriverVersion");
+			std::string disp = retrievePropertyAsString(L"InstalledDisplayDrivers");
+			std::string memtype = retrievePropertyAsString(L"VideoMemoryType");
+			std::string vid = retrievePropertyAsString(L"VideoProcessor");
+
+			if (ver != "" && ver != "?") {
+				retvalue = ver;
+			}
+
+			INFO_LOG(SYSTEM, "Device: %s v%s from %s @%shz", desc.c_str(), ver.c_str(), dt.c_str(), hz.c_str());
+			INFO_LOG(SYSTEM, "Caption: %s, processor: %s", caption.c_str(), vid.c_str(), dt.c_str());
+			INFO_LOG(SYSTEM, "RAM: %s, RAM type: %s, drivers: %s", mem.c_str(), memtype.c_str(), disp.c_str());
+
+			// Next cycle.
+			hr = pEnum->Next(DRIVER_INFO_TIMEOUT, 1, &pObj, &uReturned);
 		}
 	}
 
