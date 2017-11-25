@@ -266,9 +266,9 @@ protected:
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE);
 			lastDraw_ = type;
 		}
-		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
+		// Prim == RECTANGLES/POINTS/LINES can cause CanUseHardwareTransform to flip, so we need to dirty.
 		// Also, culling may be affected so dirty the raster state.
-		if ((prim == GE_PRIM_RECTANGLES) != (lastPrim_ == GE_PRIM_RECTANGLES)) {
+		if ((prim == GE_PRIM_RECTANGLES || prim <= GE_PRIM_LINE_STRIP) != (lastPrim_ == GE_PRIM_RECTANGLES || lastPrim_ <= GE_PRIM_LINE_STRIP)) {
 			Flush();
 			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE);
 			lastPrim_ = prim;

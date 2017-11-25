@@ -44,13 +44,13 @@
 #include "GPU/D3D11/GPU_D3D11.h"
 
 const D3D11_PRIMITIVE_TOPOLOGY d3d11prim[8] = {
-	D3D11_PRIMITIVE_TOPOLOGY_POINTLIST,
-	D3D11_PRIMITIVE_TOPOLOGY_LINELIST,
-	D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP,
+	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Expanded to triangles via software transform right now.
+	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Expanded to triangles via software transform right now.
+	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Expanded to triangles via software transform right now.
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Fans not supported
-	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Need expansion - though we could do it with geom shaders in most cases
+	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Expanded to triangles via software transform right now.
 };
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17

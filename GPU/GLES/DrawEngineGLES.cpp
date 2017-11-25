@@ -45,9 +45,10 @@
 #include "GPU/GLES/GPU_GLES.h"
 
 const GLuint glprim[8] = {
-	GL_POINTS,
-	GL_LINES,
-	GL_LINE_STRIP,
+	// We expand points and lines to triangles.
+	GL_TRIANGLES,
+	GL_TRIANGLES,
+	GL_TRIANGLES,
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,

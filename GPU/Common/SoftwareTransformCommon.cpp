@@ -243,25 +243,179 @@ static void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, Transfo
 	inds = newInds;
 }
 
-static void ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans) {
+static void ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Each point -> 4 verts, 6 inds.  Expensive.
+	numTrans = 0;
+	const TransformedVertex *transInput = drawBuffer;
+	TransformedVertex *trans = &transformedExpanded[0];
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+	maxIndex = 4 * vertexCount;
+	for (int i = 0; i < vertexCount; ++i) {
+		const TransformedVertex &transVtx = transInput[indsIn[i]];
 
-	// TODO: Also change prim type in transform pipelines.
-	numTrans = vertexCount;
+		// bottom right
+		trans[0] = transVtx;
+
+		// top right
+		trans[1] = transVtx;
+		trans[1].y = transVtx.y;
+		trans[1].v = transVtx.v;
+
+		// top left
+		trans[2] = transVtx;
+		trans[2].x = transVtx.x;
+		trans[2].y = transVtx.y;
+		trans[2].u = transVtx.u;
+		trans[2].v = transVtx.v;
+
+		// bottom left
+		trans[3] = transVtx;
+		trans[3].x = transVtx.x;
+		trans[3].u = transVtx.u;
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+
+	drawBuffer = transformedExpanded;
+	inds = newInds;
 }
 
-static void ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans) {
-	// Each line -> 4 verts, 6 inds.
+static void ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Each line -> 4 verts, 6 inds.  Only count pairs.
+	vertexCount = vertexCount & ~1;
+	numTrans = 0;
+	const TransformedVertex *transInput = drawBuffer;
+	TransformedVertex *trans = &transformedExpanded[0];
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+	maxIndex = 4 * vertexCount;
+	for (int i = 0; i < vertexCount; i += 2) {
+		const TransformedVertex &transVtxTL = transInput[indsIn[i + 0]];
+		const TransformedVertex &transVtxBR = transInput[indsIn[i + 1]];
 
-	// TODO: Also change prim type in transform pipelines.
-	numTrans = vertexCount;
+		// bottom right
+		trans[0] = transVtxBR;
+		// TODO: non-throughmode
+		trans[0].x = transVtxBR.x + 1;
+		trans[0].y = transVtxBR.y + 1;
+		trans[0].u = transVtxBR.u + 1;
+		trans[0].v = transVtxBR.v + 1;
+
+		// top right
+		trans[1] = transVtxBR;
+		// TODO: non-throughmode
+		trans[1].x = transVtxTL.x + 1;
+		trans[1].y = transVtxTL.y;
+		trans[1].u = transVtxTL.u + 1;
+		trans[1].v = transVtxTL.v;
+
+		// top left
+		trans[2] = transVtxBR;
+		trans[2].x = transVtxTL.x;
+		trans[2].y = transVtxTL.y;
+		trans[2].u = transVtxTL.u;
+		trans[2].v = transVtxTL.v;
+
+		// bottom left
+		trans[3] = transVtxBR;
+		// TODO: non-throughmode
+		trans[3].y = transVtxBR.y + 1;
+		trans[3].v = transVtxBR.v + 1;
+
+		NOTICE_LOG(HLE, "Line verts: (%f,%f),(%f,%f) - (%f,%f),(%f,%f)",
+			trans[2].x, trans[2].y, trans[1].x, trans[1].y,
+			trans[3].x, trans[3].y, trans[0].x, trans[0].y);
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+
+	drawBuffer = transformedExpanded;
+	inds = newInds;
 }
 
-static void ExpandLineStrip(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans) {
-	// Each line -> 4 verts, 6 inds.
+static void ExpandLineStrip(int vertexCount, int &maxIndex, u16 *&inds, TransformedVertex *&drawBuffer, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Each line -> 4 verts, 6 inds.  Odd is fine here since it's a strip.
+	numTrans = 0;
+	const TransformedVertex *transInput = drawBuffer;
+	TransformedVertex *trans = &transformedExpanded[0];
+	const u16 *indsIn = (const u16 *)inds;
+	u16 *newInds = inds + vertexCount;
+	u16 *indsOut = newInds;
+	maxIndex = 4 * vertexCount;
+	for (int i = 0; i < vertexCount - 1; ++i) {
+		const TransformedVertex &transVtxTL = transInput[indsIn[i + 0]];
+		const TransformedVertex &transVtxBR = transInput[indsIn[i + 1]];
 
-	// TODO: Also change prim type in transform pipelines.
-	numTrans = vertexCount;
+		// bottom right
+		trans[0] = transVtxBR;
+		// TODO: non-throughmode
+		trans[0].x = transVtxBR.x + 1;
+		trans[0].y = transVtxBR.y + 1;
+		trans[0].u = transVtxBR.u + 1;
+		trans[0].v = transVtxBR.v + 1;
+
+		// top right
+		trans[1] = transVtxBR;
+		// TODO: non-throughmode
+		trans[1].x = transVtxTL.x + 1;
+		trans[1].y = transVtxTL.y;
+		trans[1].u = transVtxTL.u + 1;
+		trans[1].v = transVtxTL.v;
+
+		// top left
+		trans[2] = transVtxBR;
+		trans[2].x = transVtxTL.x;
+		trans[2].y = transVtxTL.y;
+		trans[2].u = transVtxTL.u;
+		trans[2].v = transVtxTL.v;
+
+		// bottom left
+		trans[3] = transVtxBR;
+		// TODO: non-throughmode
+		trans[3].y = transVtxBR.y + 1;
+		trans[3].v = transVtxBR.v + 1;
+
+		// Triangle: BR-TR-TL
+		indsOut[0] = i * 2 + 0;
+		indsOut[1] = i * 2 + 1;
+		indsOut[2] = i * 2 + 2;
+		// Triangle: BL-BR-TL
+		indsOut[3] = i * 2 + 3;
+		indsOut[4] = i * 2 + 0;
+		indsOut[5] = i * 2 + 2;
+		trans += 4;
+		indsOut += 6;
+
+		numTrans += 6;
+	}
+
+	drawBuffer = transformedExpanded;
+	inds = newInds;
 }
 
 // NOTE: The viewport must be up to date!
@@ -644,11 +798,14 @@ void SoftwareTransform(
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
-		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans);
+		ExpandPoints(vertexCount, maxIndex, inds, drawBuffer, transformedExpanded, numTrans, throughmode);
+		drawIndexed = true;
 	} else if (prim == GE_PRIM_LINES) {
-		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans);
+		ExpandLines(vertexCount, maxIndex, inds, drawBuffer, transformedExpanded, numTrans, throughmode);
+		drawIndexed = true;
 	} else if (prim == GE_PRIM_LINE_STRIP) {
-		ExpandLineStrip(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans);
+		ExpandLineStrip(vertexCount, maxIndex, inds, drawBuffer, transformedExpanded, numTrans, throughmode);
+		drawIndexed = true;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
