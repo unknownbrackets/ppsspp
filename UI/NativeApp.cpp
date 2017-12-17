@@ -944,7 +944,6 @@ void NativeShutdownGraphics() {
 }
 
 void TakeVC3Screenshot(std::vector<std::string> string_ids) {
-#ifdef _WIN32
 	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	while (path.length() > 0 && path.back() == '/') {
 		path.resize(path.size() - 1);
@@ -981,7 +980,6 @@ void TakeVC3Screenshot(std::vector<std::string> string_ids) {
 			osm.Show(err->T("Could not save screenshot file"));
 		}
 	}
-#endif
 
 	if (g_Config.bVC3SaveState)
 		SaveState::SaveFromRewind(stateFilename, 5);
