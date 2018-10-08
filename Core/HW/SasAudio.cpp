@@ -891,11 +891,13 @@ inline void ADSREnvelope::Step() {
 		break;
 	case STATE_DECAY:
 		WalkCurve(decayType, decayRate);
-		if (height_ < sustainLevel)
+		if (height_ <= sustainLevel)
 			SetState(STATE_SUSTAIN);
 		break;
 	case STATE_SUSTAIN:
 		WalkCurve(sustainType, sustainRate);
+		if (height_ >= PSP_SAS_ENVELOPE_HEIGHT_MAX)
+			height_ = PSP_SAS_ENVELOPE_HEIGHT_MAX;
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_RELEASE);
