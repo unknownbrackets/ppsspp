@@ -330,6 +330,10 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 		render_->DeleteProgram(depthDownloadProgram_);
 		depthDownloadProgram_ = nullptr;
 	}
+	if (depthUploadProgram_) {
+		render_->DeleteProgram(depthUploadProgram_);
+		depthUploadProgram_ = nullptr;
+	}
 }
 
 FramebufferManagerGLES::~FramebufferManagerGLES() {

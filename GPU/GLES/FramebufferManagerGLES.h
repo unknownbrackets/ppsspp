@@ -84,6 +84,7 @@ private:
 	void CompilePostShader();
 
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	bool NotifyDepthUpload(u32 addr, int size);
 
 	GLRenderManager *render_;
 
@@ -109,6 +110,9 @@ private:
 	int u_depthDownloadFactor = -1;
 	int u_depthDownloadShift = -1;
 	int u_depthDownloadTo8 = -1;
+	GLRProgram *depthUploadProgram_ = nullptr;
+	int u_depthUploadTex = -1;
+	int u_depthUploadFactor = -1;
 	
 	// Cached uniform locs
 	int u_draw2d_tex = -1;

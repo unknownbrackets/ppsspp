@@ -56,6 +56,30 @@ void main() {
 }
 )";
 
+static const char *depth_ul_fs = R"(
+#ifdef GL_ES
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+#endif
+#if __VERSION__ >= 130
+#define varying in
+#define texture2D texture
+#define gl_FragColor fragColor0
+out vec4 fragColor0;
+#endif
+varying vec2 v_texcoord0;
+uniform vec2 u_depthFactor;
+uniform sampler2D tex;
+void main() {
+  float depth = texture2D(tex, v_texcoord0).r;
+  gl_FragDepth = (depth * u_depthFactor.y) + u_depthFactor.x;
+  gl_FragColor = vec4(0.0);
+}
+)";
+
 static const char *depth_vs = R"(
 #ifdef GL_ES
 precision highp float;
@@ -204,4 +228,121 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 	}
 
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+}
+
+bool FramebufferManagerGLES::NotifyDepthUpload(u32 addr, int size) {
+	// Ignore memory mirrors.
+	addr &= 0x3F9FFFFF;
+
+	// TODO: Currently, path only supports GLES3.
+	if (!SupportsDepthTexturing() || (gl_extensions.IsGLES && !gl_extensions.GLES3)) {
+		return false;
+	}
+
+	VirtualFramebuffer *dstBuffer = nullptr;
+	for (auto vfb : vfbs_) {
+		if ((vfb->z_address & 0x3F9FFFFF) == addr) {
+			// TODO: Something smarter to pick the "right" one?
+			dstBuffer = vfb;
+		}
+	}
+	if (!dstBuffer) {
+		return false;
+	}
+
+	const u16_le *src = (const u16_le *)Memory::GetPointer(addr);
+	if (!src)
+		return false;
+
+	DEBUG_LOG(FRAMEBUF, "Uploading depthbuffer at %08x for vfb=%08x", dstBuffer->z_address, dstBuffer->fb_address);
+
+	// TODO: Might be able to subimage, but probably need to use a 24-bit format.
+	// Or could try blitting between the textures...
+	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D);
+	// TODO: Can't get it to upload with correct rounding either way... see which is faster.
+	const bool use16Texture = true;
+	// The texture buffer ownership is transfered to TextureImage().
+	if (use16Texture) {
+		u16_le *buffer = new u16_le[dstBuffer->bufferWidth * dstBuffer->bufferHeight];
+		for (int y = 0; y < dstBuffer->bufferHeight; ++y) {
+			u16_le *ydst = buffer + y * dstBuffer->bufferWidth;
+			const u16_le *ysrc = src + y * dstBuffer->z_stride;
+			memcpy(ydst, ysrc, dstBuffer->bufferWidth * sizeof(u16));
+		}
+
+		render_->TextureImage(tex, 0, dstBuffer->bufferWidth, dstBuffer->bufferHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, (u8 *)buffer, GLRAllocType::NEW, false);
+	} else {
+		float *buffer = new float[dstBuffer->bufferWidth * dstBuffer->bufferHeight];
+		for (int y = 0; y < dstBuffer->bufferHeight; ++y) {
+			float *ydst = buffer + y * dstBuffer->bufferWidth;
+			const u16_le *ysrc = src + y * dstBuffer->z_stride;
+			for (int x = 0; x < dstBuffer->bufferWidth; ++x) {
+				ydst[x] = ToScaledDepth(ysrc[x]);
+			}
+		}
+
+		render_->TextureImage(tex, 0, dstBuffer->bufferWidth, dstBuffer->bufferHeight, GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT, (u8 *)buffer, GLRAllocType::NEW, false);
+	}
+
+	if (!depthUploadProgram_) {
+		std::string errorString;
+		static std::string vs_code, fs_code;
+		vs_code = ApplyGLSLPrelude(depth_vs, GL_VERTEX_SHADER);
+		fs_code = ApplyGLSLPrelude(depth_ul_fs, GL_FRAGMENT_SHADER);
+		if (gl_extensions.IsGLES && gl_extensions.GLES3) {
+			vs_code = "#version 300 es\n" + vs_code;
+			fs_code = "#version 300 es\n" + fs_code;
+		}
+		std::vector<GLRShader *> shaders;
+		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code, "depth_ul"));
+		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "depth_ul"));
+		std::vector<GLRProgram::Semantic> semantics;
+		semantics.push_back({ 0, "a_position" });
+		semantics.push_back({ 1, "a_texcoord0" });
+		std::vector<GLRProgram::UniformLocQuery> queries;
+		queries.push_back({ &u_depthUploadTex, "tex" });
+		queries.push_back({ &u_depthUploadFactor, "u_depthFactor" });
+		std::vector<GLRProgram::Initializer> inits;
+		inits.push_back({ &u_depthUploadTex, 0, TEX_SLOT_PSP_TEXTURE });
+		depthUploadProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
+		for (auto iter : shaders) {
+			render_->DeleteShader(iter);
+		}
+		if (!depthUploadProgram_) {
+			ERROR_LOG_REPORT(G3D, "Failed to compile depthUploadProgram! This shouldn't happen.\n%s", errorString.c_str());
+		}
+	}
+
+	shaderManagerGL_->DirtyLastShader();
+	draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::DONT_CARE, Draw::RPAction::KEEP });
+	render_->SetViewport({ 0, 0, (float)dstBuffer->renderWidth, (float)dstBuffer->renderHeight, 0.0f, 1.0f });
+
+	// We must bind the program after starting the render pass, and set the color mask after clearing.
+	render_->SetScissor({ 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight });
+	render_->SetDepth(true, true, GL_ALWAYS);
+	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
+	render_->SetNoBlendAndMask(0x0);
+	render_->SetStencilDisabled();
+	render_->BindProgram(depthUploadProgram_);
+
+	if (!use16Texture || !gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		float factors[] = { 0.0f, 1.0f };
+		render_->SetUniformF(&u_depthUploadFactor, 2, factors);
+	} else {
+		const float factor = DepthSliceFactor();
+		// Inverted for convenience in the shader.
+		float factors[] = { 0.5f * (factor - 1.0f) * (1.0f / factor), 1.0f / factor };
+		render_->SetUniformF(&u_depthUploadFactor, 2, factors);
+	}
+
+	float u1 = 1.0f;
+	float v1 = 1.0f;
+	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, tex);
+	DrawActiveTexture(0.0f, 0.0f, dstBuffer->bufferWidth, dstBuffer->bufferHeight, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST | DRAWTEX_KEEP_DEPTH_STENCIL_BLEND);
+	render_->DeleteTexture(tex);
+
+	// TODO: Blit this depth to all other with the same framebuf?
+
+	textureCacheGL_->ForgetLastTexture();
+	return true;
 }
