@@ -242,7 +242,7 @@ bool FramebufferManagerGLES::NotifyDepthUpload(u32 addr, int size) {
 	VirtualFramebuffer *dstBuffer = nullptr;
 	for (auto vfb : vfbs_) {
 		if ((vfb->z_address & 0x3F9FFFFF) == addr) {
-			// TODO: Something smarter to pick the "right" one?
+			// TODO: Something smarter to pick the "right" one?  Prioritize largest?
 			dstBuffer = vfb;
 		}
 	}
@@ -259,29 +259,31 @@ bool FramebufferManagerGLES::NotifyDepthUpload(u32 addr, int size) {
 	// TODO: Might be able to subimage, but probably need to use a 24-bit format.
 	// Or could try blitting between the textures...
 	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D);
+	uint16_t dstW = std::min(dstBuffer->width, dstBuffer->bufferWidth);
+	uint16_t dstH = std::min(dstBuffer->height, dstBuffer->bufferHeight);
 	// TODO: Can't get it to upload with correct rounding either way... see which is faster.
 	const bool use16Texture = true;
 	// The texture buffer ownership is transfered to TextureImage().
 	if (use16Texture) {
-		u16_le *buffer = new u16_le[dstBuffer->bufferWidth * dstBuffer->bufferHeight];
-		for (int y = 0; y < dstBuffer->bufferHeight; ++y) {
-			u16_le *ydst = buffer + y * dstBuffer->bufferWidth;
+		u16_le *buffer = new u16_le[dstW * dstH];
+		for (int y = 0; y < dstH; ++y) {
+			u16_le *ydst = buffer + y * dstW;
 			const u16_le *ysrc = src + y * dstBuffer->z_stride;
-			memcpy(ydst, ysrc, dstBuffer->bufferWidth * sizeof(u16));
+			memcpy(ydst, ysrc, dstW * sizeof(u16));
 		}
 
-		render_->TextureImage(tex, 0, dstBuffer->bufferWidth, dstBuffer->bufferHeight, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, (u8 *)buffer, GLRAllocType::NEW, false);
+		render_->TextureImage(tex, 0, dstW, dstH, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, (u8 *)buffer, GLRAllocType::NEW, false);
 	} else {
-		float *buffer = new float[dstBuffer->bufferWidth * dstBuffer->bufferHeight];
-		for (int y = 0; y < dstBuffer->bufferHeight; ++y) {
-			float *ydst = buffer + y * dstBuffer->bufferWidth;
+		float *buffer = new float[dstW * dstH];
+		for (int y = 0; y < dstH; ++y) {
+			float *ydst = buffer + y * dstW;
 			const u16_le *ysrc = src + y * dstBuffer->z_stride;
-			for (int x = 0; x < dstBuffer->bufferWidth; ++x) {
+			for (int x = 0; x < dstW; ++x) {
 				ydst[x] = ToScaledDepth(ysrc[x]);
 			}
 		}
 
-		render_->TextureImage(tex, 0, dstBuffer->bufferWidth, dstBuffer->bufferHeight, GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT, (u8 *)buffer, GLRAllocType::NEW, false);
+		render_->TextureImage(tex, 0, dstW, dstH, GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT, (u8 *)buffer, GLRAllocType::NEW, false);
 	}
 
 	if (!depthUploadProgram_) {
@@ -338,10 +340,26 @@ bool FramebufferManagerGLES::NotifyDepthUpload(u32 addr, int size) {
 	float u1 = 1.0f;
 	float v1 = 1.0f;
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, tex);
-	DrawActiveTexture(0.0f, 0.0f, dstBuffer->bufferWidth, dstBuffer->bufferHeight, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST | DRAWTEX_KEEP_DEPTH_STENCIL_BLEND);
+	DrawActiveTexture(0.0f, 0.0f, dstW, dstH, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST | DRAWTEX_KEEP_DEPTH_STENCIL_BLEND);
 	render_->DeleteTexture(tex);
 
-	// TODO: Blit this depth to all other with the same framebuf?
+	dstBuffer->last_frame_depth_updated = gpuStats.numFlips;
+
+	// "Broadcast" the depth upload to any other framebufs with matching depth.
+	// Usually two separate color/stencil buffers will share a single depth buffer.
+	if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+		for (auto vfb : vfbs_) {
+			bool matchAddress = (vfb->z_address & 0x3F9FFFFF) == (dstBuffer->z_address & 0x3F9FFFFF);
+			bool matchStride = vfb->z_stride == dstBuffer->z_stride;
+			if (vfb != dstBuffer && matchAddress && matchStride) {
+				// TODO: Get w/h from size?
+				const int w = std::min(dstW, vfb->bufferWidth);
+				const int h = std::min(dstH, vfb->bufferHeight);
+				draw_->BlitFramebuffer(dstBuffer->fbo, 0, 0, w, h, vfb->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
+				vfb->last_frame_depth_updated = gpuStats.numFlips;
+			}
+		}
+	}
 
 	textureCacheGL_->ForgetLastTexture();
 	return true;
