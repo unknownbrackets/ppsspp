@@ -976,7 +976,7 @@ void TakeVC3Screenshot(std::vector<std::string> string_ids) {
 	if (g_Config.bVC3SaveScreenshot) {
 		bool success = TakeGameScreenshot(screenshotFilename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_DISPLAY);
 		if (!success) {
-			I18NCategory *err = GetI18NCategory("Error");
+			auto err = GetI18NCategory("Error");
 			osm.Show(err->T("Could not save screenshot file"));
 		}
 	}
