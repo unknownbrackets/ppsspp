@@ -90,6 +90,9 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 		} else {
 			ELOG("Missing font");
 		}
+		if (!env_) {
+			env_ = getEnv();
+		}
 		std::string text(NormalizeString(std::string(str, len)));
 		jstring jstr = env_->NewStringUTF(text.c_str());
 		uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
@@ -112,6 +115,9 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 		scaledSize = iter->second.size;
 	} else {
 		ELOG("Missing font");
+	}
+	if (!env_) {
+		env_ = getEnv();
 	}
 
 	std::string toMeasure = std::string(str, len);
@@ -167,6 +173,9 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		size = iter->second.size;
 	} else {
 		ELOG("Missing font");
+	}
+	if (!env_) {
+		env_ = getEnv();
 	}
 
 	jstring jstr = env_->NewStringUTF(str);
