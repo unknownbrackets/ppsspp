@@ -626,8 +626,8 @@ namespace MIPSInt
 				
 			case 18: //vsin
 			{
-				float sine = sinf((float)M_PI_2 * s[i]);
-				float sine2 = vfpu_sin(s[i]);
+				float sine2 = sinf((float)M_PI_2 * s[i]);
+				float sine = vfpu_sin(s[i]);
 				d[i] = sine;
 				if (roundf(sine * 10000.0f) != roundf(sine2 * 10000.0f)) {
 					NOTICE_LOG(CPU, "VV2Op sine difference: %f vs %f -- %f / %08x", sine, sine2, s[i], currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX]);
@@ -636,8 +636,8 @@ namespace MIPSInt
 			}
 			case 19: //vcos
 			{
-				float cosine = cosf((float)M_PI_2 * s[i]);
-				float cosine2 = vfpu_cos(s[i]);
+				float cosine2 = cosf((float)M_PI_2 * s[i]);
+				float cosine = vfpu_cos(s[i]);
 				d[i] = cosine;
 				if (roundf(cosine * 10000.0f) != roundf(cosine2 * 10000.0f)) {
 					NOTICE_LOG(CPU, "VV2Op cosine difference: %f vs %f -- %f / %08x", cosine, cosine2, s[i], currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX]);
@@ -651,8 +651,8 @@ namespace MIPSInt
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
 			case 26: // vnsin
 			{
-				float sine = sinf((float)M_PI_2 * s[i]);
-				float sine2 = vfpu_sin(s[i]);
+				float sine2 = sinf((float)M_PI_2 * s[i]);
+				float sine = vfpu_sin(s[i]);
 				d[i] = -sine;
 				if (roundf(sine * 10000.0f) != roundf(sine2 * 10000.0f)) {
 					NOTICE_LOG(CPU, "VV2Op -sine difference: %f vs %f -- %f / %08x", sine, sine2, s[i], currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX]);
@@ -1604,13 +1604,15 @@ namespace MIPSInt
 		float sine, cosine;
 		float sine2, cosine2;
 		if (currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] == 0x000E4) {
-			vfpu_sincos(V(vs), sine2, cosine2);
+			vfpu_sincos(V(vs), sine, cosine);
 
 			float angle = V(vs) * M_PI_2;
-			sine = sinf(angle);
-			cosine = cosf(angle);
+			sine2 = sinf(angle);
+			cosine2 = cosf(angle);
 			if (negSin)
 				sine = -sine;
+			if (negSin)
+				sine2 = -sine2;
 		} else {
 			// Swizzle on S is a bit odd here, but generally only applies to sine.
 			float s[4]{};
@@ -1621,13 +1623,15 @@ namespace MIPSInt
 			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Single);
 
 			// Cosine ignores all prefixes, so take the original.
-			cosine2 = vfpu_cos(V(vs));
-			sine2 = vfpu_sin(s[0]);
-			sine = sinf(s[0] * (float)M_PI_2);
-			cosine = cosf(V(vs) * (float)M_PI_2);
+			cosine = vfpu_cos(V(vs));
+			sine = vfpu_sin(s[0]);
+			sine2 = sinf(s[0] * (float)M_PI_2);
+			cosine2 = cosf(V(vs) * (float)M_PI_2);
 
 			if (negSin)
 				sine = -sine;
+			if (negSin)
+				sine2 = -sine2;
 			RetainInvalidSwizzleST(&sine, V_Single);
 		}
 
