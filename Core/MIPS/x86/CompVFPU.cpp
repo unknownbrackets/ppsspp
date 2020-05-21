@@ -2201,6 +2201,7 @@ void SinCosNegSin(SinCosArg angle, float *output) {
 }
 
 void Jit::Comp_VV2Op(MIPSOpcode op) {
+	DISABLE;
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
 	if (js.HasUnknownPrefix())
@@ -3526,6 +3527,7 @@ void Jit::CompVrotShuffle(u8 *dregs, int imm, int n, bool negSin) {
 
 // Very heavily used by FF:CC
 void Jit::Comp_VRot(MIPSOpcode op) {
+	DISABLE;
 	CONDITIONAL_DISABLE(VFPU_VEC);
 	if (js.HasUnknownPrefix()) {
 		DISABLE;

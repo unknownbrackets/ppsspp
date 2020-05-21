@@ -2185,6 +2185,7 @@ namespace MIPSComp
 	// calling the math library.
 	// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
 	void ArmJit::Comp_VRot(MIPSOpcode op) {
+		DISABLE;
 		NEON_IF_AVAILABLE(CompNEON_VRot);
 		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE(VFPU_VEC);

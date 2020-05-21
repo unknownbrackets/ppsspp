@@ -1907,6 +1907,7 @@ namespace MIPSComp {
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	void Arm64Jit::Comp_VRot(MIPSOpcode op) {
+		DISABLE;
 		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
