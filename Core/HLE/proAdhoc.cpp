@@ -70,10 +70,7 @@ std::thread friendFinderThread;
 std::recursive_mutex peerlock;
 SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
-std::vector<std::string> chatLog;
-std::string name = "";
-std::string incoming = "";
-std::string message = "";
+static std::vector<std::string> chatLog;
 bool chatScreenVisible = false;
 bool updateChatScreen = false;
 int newChat = 0;
@@ -1137,29 +1134,37 @@ void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 	if (count != NULL) (*count)++;
 }
 
-void sendChat(std::string chatString) {
-	SceNetAdhocctlChatPacketC2S chat;
+void sendChat(const std::string &chatString) {
+	SceNetAdhocctlChatPacketC2S chat{};
 	auto n = GetI18NCategory("Networking");
 	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
-	if (friendFinderRunning)
-	{
-		// Send Chat to Server 
-		if (!chatString.empty()) {
-			//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
-			message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
-			strcpy(chat.message, message.c_str());
-			//Send Chat Messages
+	if (friendFinderRunning) {
+		// Original server (pro.coldbird.net) allowed a maximum of 64 character, keeping for compat.
+		bool success = !chatString.empty();
+		for (size_t pos = 0; pos < chatString.length(); pos += 60) {
+			strcpy(chat.message, chatString.substr(pos, 60).c_str());
+			if (pos + 60 > chatString.length()) {
+				strcat(chat.message, "...");
+			}
 			int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
-			NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
-			name = g_Config.sNickName.c_str();
-			chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
-			if (chatScreenVisible) {
-				updateChatScreen = true;
+			if (chatResult != sizeof(chat)) {
+				ERROR_LOG(SCENET, "Could not send chat '%s' to Adhoc Server", chat.message);
+				success = false;
+			} else {
+				NOTICE_LOG(SCENET, "Sent chat '%s' to Adhoc Server", chat.message);
 			}
 		}
-	}
-	else {
+
+		if (success) {
+			chatLog.push_back(g_Config.sNickName.substr(0, 8) + ": " + chatString);
+		} else if (!chatString.empty()) {
+			chatLog.push_back(n->T("Your message could not be sent"));
+		}
+		if (chatScreenVisible) {
+			updateChatScreen = true;
+		}
+	} else {
 		chatLog.push_back(n->T("You're in Offline Mode, go to lobby or online hall"));
 		if (chatScreenVisible) {
 			updateChatScreen = true;
@@ -1297,14 +1302,27 @@ int friendFinder(){
 						packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 						packet->base.message[ADHOCCTL_MESSAGE_LEN - 1] = 0;
 
+						std::string name = (const char *)packet->name.data;
+						std::string incoming = (const char *)packet->base.message;
+
 						// Add Incoming Chat to HUD
 						NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
-						incoming = "";
-						name = (char*)packet->name.data;
-						incoming.append(name.substr(0, 8));
-						incoming.append(": ");
-						incoming.append((char*)packet->base.message);
-						chatLog.push_back(incoming);
+						std::string namePrefix = name.substr(0, 8) + ": ";
+						const size_t CONTINUE_LEN = namePrefix.length() + 60 + 3;
+						// Could this be continuing a previous message?  Would be 10 + 60 + "...".
+						bool wasContinued = false;
+						if (!chatLog.empty() && chatLog.back().length() >= CONTINUE_LEN) {
+							bool nameMatch = chatLog.back().substr(0, 10) == namePrefix;
+							bool ellipsis = chatLog.back().substr(chatLog.back().length() - 3, 3) == "...";
+							if (nameMatch && ellipsis) {
+								chatLog.back() = chatLog.back().substr(0, chatLog.back().length() - 3) + incoming;
+								wasContinued = true;
+							}
+						}
+						if (!wasContinued) {
+							chatLog.push_back(namePrefix + incoming);
+						}
+
 						//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
 						if (chatScreenVisible) {
 							updateChatScreen = true;
@@ -1346,7 +1364,7 @@ int friendFinder(){
 						}*/
 
 						// Update HUD User Count
-						incoming = "";
+						std::string incoming = "";
 						incoming.append((char*)packet->name.data);
 						incoming.append(" Joined ");
 						//do we need ip?
