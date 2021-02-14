@@ -67,6 +67,8 @@
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
+bool texCacheDebugDifference = false;
+
 // Just for reference
 
 // PSP Color formats:
@@ -325,6 +327,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
+		if (texCacheDebugDifference) {
+			ERROR_LOG(HLE, "Bad texture found");
+		}
 		Unbind();
 		return nullptr;
 	}
@@ -343,6 +348,9 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
+			if (texCacheDebugDifference) {
+				ERROR_LOG(HLE, "Clut change detected");
+			}
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
@@ -362,9 +370,15 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
 	// Should probably revisit how this works..
+	if (texCacheDebugDifference && gstate_c.needShaderTexClamp) {
+		ERROR_LOG(HLE, "Clearing shader texclamp?");
+	}
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	if (gstate_c.bgraTexture != isBgraBackend_) {
+		if (texCacheDebugDifference) {
+			ERROR_LOG(HLE, "BGRA detected - how?");
+		}
 		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 	}
 	gstate_c.bgraTexture = isBgraBackend_;
@@ -380,6 +394,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			// Fall through to the end where we'll delete the entry if there's a framebuffer.
 			entry->status &= ~TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
 			match = false;
+			reason = "framebuffer overlap";
 		}
 
 		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
@@ -398,6 +413,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		if (entry->status & TexCacheEntry::STATUS_FORCE_REBUILD) {
 			match = false;
 			entry->status &= ~TexCacheEntry::STATUS_FORCE_REBUILD;
+			reason = "force rebuild";
 		}
 
 		if (match) {
@@ -457,9 +473,15 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			nextNeedsChange_ = false;
 			// Might need a rebuild if the hash fails, but that will be set later.
 			nextNeedsRebuild_ = false;
+			if (texCacheDebugDifference) {
+				INFO_LOG(HLE, "Wasted difference?  Or something earlier?");
+			}
 			VERBOSE_LOG(G3D, "Texture at %08x found in cache, applying", texaddr);
 			return entry; //Done!
 		} else {
+			if (texCacheDebugDifference) {
+				ERROR_LOG(HLE, "NOT A MATCH?  reason=%s", reason);
+			}
 			// Wasn't a match, we will rebuild.
 			nextChangeReason_ = reason;
 			nextNeedsChange_ = true;

@@ -76,6 +76,8 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
+static bool forceTexParamsDirty = false;
+
 DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
 	:	vulkan_(vulkan),
 		draw_(draw),
@@ -600,7 +602,11 @@ void DrawEngineVulkan::DoFlush() {
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool textureNeedsApply = false;
-	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+	if ((forceTexParamsDirty || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		texCacheDebugDifference = forceTexParamsDirty && !gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		if (texCacheDebugDifference) {
+			NOTICE_LOG(HLE, "#13741 - Force texture params check for tex %08x", gstate.getTextureAddress(0));
+		}
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
@@ -957,6 +963,7 @@ void DrawEngineVulkan::DoFlush() {
 				if (lastRenderStepId_ != curRenderStepId) {
 					// Dirty everything that has dynamic state that will need re-recording.
 					gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
+					forceTexParamsDirty = true;
 					lastRenderStepId_ = curRenderStepId;
 				}
 

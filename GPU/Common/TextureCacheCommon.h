@@ -52,6 +52,8 @@ enum FramebufferNotificationChannel {
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
+extern bool texCacheDebugDifference;
+
 struct VirtualFramebuffer;
 
 namespace Draw {
