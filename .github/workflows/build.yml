@@ -24,153 +24,158 @@ env:
   BUILD_CONFIGURATION: Release
 
 jobs:
-  build-windows:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [x64, ARM64]
-
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: recursive
-
-    - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1
-
-    - name: Build Windows
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ matrix.platform }} Windows/PPSSPP.sln
-
-    - name: Package build
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: |
-        mkdir ppsspp
-        cp PPSSPP*.exe ppsspp/
-        cp *.pdb ppsspp/
-        cp Windows/*.bat ppsspp/
-        cp -r assets ppsspp/assets
-
-    - name: Package headless (non-Win32)
-      if: matrix.platform != 'Win32'
-      run: cp Windows/${{ matrix.platform }}/Release/*.exe ppsspp/
-
-    - name: Package headless (Win32)
-      if: matrix.platform == 'Win32'
-      run: cp Windows/Release/*.exe ppsspp/
-
-    - name: Upload build
-      uses: actions/upload-artifact@v1
-      with:
-        name: Windows ${{ matrix.platform }} build
-        path: ppsspp/
-
-  build-uwp:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: recursive
-
-    - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1
-
-    - name: Build UWP
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=x64 /p:AppxPackageSigningEnabled=false UWP/PPSSPP_UWP.sln
-
-  test-windows:
-    runs-on: windows-latest
-    needs: build-windows
-    timeout-minutes: 30
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        submodules: false
-
-    - name: Fetch tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests assets/lang
-
-    - name: Download build
-      uses: actions/download-artifact@v2
-      with:
-        name: Windows x64 build
-        path: ppsspp/
-
-    - name: Execute tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py --graphics=software
+#  build-windows:
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        platform: [x64, ARM64]
+#
+#    runs-on: windows-latest
+#    steps:
+#    - uses: actions/checkout@v2
+#      with:
+#        submodules: recursive
+#
+#    - name: Add MSBuild to PATH
+#      uses: microsoft/setup-msbuild@v1
+#
+#    - name: Build Windows
+#      working-directory: ${{ env.GITHUB_WORKSPACE }}
+#      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ matrix.platform }} Windows/PPSSPP.sln
+#
+#    - name: Package build
+#      working-directory: ${{ env.GITHUB_WORKSPACE }}
+#      run: |
+#        mkdir ppsspp
+#        cp PPSSPP*.exe ppsspp/
+#        cp *.pdb ppsspp/
+#        cp Windows/*.bat ppsspp/
+#        cp -r assets ppsspp/assets
+#
+#    - name: Package headless (non-Win32)
+#      if: matrix.platform != 'Win32'
+#      run: cp Windows/${{ matrix.platform }}/Release/*.exe ppsspp/
+#
+#    - name: Package headless (Win32)
+#      if: matrix.platform == 'Win32'
+#      run: cp Windows/Release/*.exe ppsspp/
+#
+#    - name: Upload build
+#      uses: actions/upload-artifact@v1
+#      with:
+#        name: Windows ${{ matrix.platform }} build
+#        path: ppsspp/
+#
+#  build-uwp:
+#    runs-on: windows-latest
+#    steps:
+#    - uses: actions/checkout@v2
+#      with:
+#        submodules: recursive
+#
+#    - name: Add MSBuild to PATH
+#      uses: microsoft/setup-msbuild@v1
+#
+#    - name: Build UWP
+#      working-directory: ${{ env.GITHUB_WORKSPACE }}
+#      run: msbuild /m /p:TrackFileAccess=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=x64 /p:AppxPackageSigningEnabled=false UWP/PPSSPP_UWP.sln
+#
+#  test-windows:
+#    runs-on: windows-latest
+#    needs: build-windows
+#    timeout-minutes: 30
+#    steps:
+#    - uses: actions/checkout@v2
+#      with:
+#        submodules: false
+#
+#    - name: Fetch tests
+#      working-directory: ${{ env.GITHUB_WORKSPACE }}
+#      # Doing this to avoid ffmpeg and other large submodules.
+#      run: git submodule update --init pspautotests assets/lang
+#
+#    - name: Download build
+#      uses: actions/download-artifact@v2
+#      with:
+#        name: Windows x64 build
+#        path: ppsspp/
+#
+#    - name: Execute tests
+#      working-directory: ${{ env.GITHUB_WORKSPACE }}
+#      run: python test.py --graphics=software
 
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
-        - os: ubuntu-latest
-          extra: test
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --headless
-        - os: ubuntu-latest
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --headless
+#        - os: ubuntu-latest
+#          extra: test
+#          cc: clang
+#          cxx: clang++
+#          args: ./b.sh --headless
+#        - os: ubuntu-latest
+#          cc: gcc
+#          cxx: g++
+#          args: ./b.sh --headless
+#
+#        - os: ubuntu-latest
+#          extra: android
+#          cc: clang
+#          cxx: clang++
+#          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
+#        - os: ubuntu-latest
+#          extra: android
+#          cc: clang
+#          cxx: clang++
+#          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
+#        - os: ubuntu-latest
+#          extra: android
+#          cc: clang
+#          cxx: clang++
+#          args: cd android && ./ab.sh -j2 APP_ABI=x86 UNITTEST=1 HEADLESS=1
+#        - os: ubuntu-latest
+#          extra: android
+#          cc: clang
+#          cxx: clang++
+#          args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
+#        - os: ubuntu-latest
+#          extra: android
+#          cc: clang
+#          cxx: clang++
+#          args: ./b.sh --libretro_android ppsspp_libretro
+#
+#        - os: ubuntu-latest
+#          extra: qt
+#          cc: gcc
+#          cxx: g++
+#          args: ./b.sh --qt
+#        - os: ubuntu-latest
+#          extra: libretro
+#          cc: gcc
+#          cxx: g++
+#          args: ./b.sh --libretro
+#        - os: ubuntu-latest
+#          extra: libretro
+#          cc: clang
+#          cxx: clang++
+#          args: ./b.sh --libretro
+#
+#        - os: macos-latest
+#          extra: test
+#          cc: clang
+#          cxx: clang++
+#          args: ./b.sh --headless
+#        - os: macos-latest
+#          extra: ios
+#          cc: clang
+#          cxx: clang++
+#          args: ./b.sh --ios
 
-        - os: ubuntu-latest
-          extra: android
-          cc: clang
-          cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
-        - os: ubuntu-latest
-          extra: android
-          cc: clang
-          cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
-        - os: ubuntu-latest
-          extra: android
-          cc: clang
-          cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86 UNITTEST=1 HEADLESS=1
-        - os: ubuntu-latest
-          extra: android
-          cc: clang
-          cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
-        - os: ubuntu-latest
-          extra: android
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --libretro_android ppsspp_libretro
-
-        - os: ubuntu-latest
-          extra: qt
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --qt
-        - os: ubuntu-latest
-          extra: libretro
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --libretro
-        - os: ubuntu-latest
-          extra: libretro
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --libretro
-
-        - os: macos-latest
-          extra: test
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --headless
-        - os: macos-latest
-          extra: ios
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --ios
+        - os: windows-latest
+          cc: clang-cl
+          cxx: clang-cl
+          args: ./b.sh --windows
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -210,12 +215,18 @@ jobs:
       run: |
         brew install sdl2
 
+    - uses: seanmiddleditch/gha-setup-ninja@master
+      if: runner.os == 'Windows'
+
+    - uses: ilammy/msvc-dev-cmd@v1
+
     - name: Execute build
       env:
         CC: ${{ matrix.cc }}
         CXX: ${{ matrix.cxx }}
         NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
       run: ${{ matrix.args }}
+      shell: bash
 
     - name: Package build
       if: matrix.extra == 'test'

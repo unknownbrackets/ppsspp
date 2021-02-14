@@ -10,11 +10,13 @@ endif()
 
 enable_language(ASM)
 
-add_definitions(-D__STDC_CONSTANT_MACROS)
+add_definitions(-D__STDC_CONSTANT_MACROS -D_CRT_NONSTDC_NO_DEPRECATE)
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 	set(CLANG ON)
 	message("Clang enabled")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++98-compat-pedantic -Wno-c++98-compat")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-reserved-id-macro -Wno-sign-conversion -Wno-signed-enum-bitfield -Wno-switch-enum -Wno-old-style-cast -Wno-implicit-int-conversion -Wno-zero-as-null-pointer-constant -Wno-unused-macros -Wno-shadow-field-in-constructor -Wno-shadow-field -Wno-nonportable-include-path -Wno-comment")
 endif()
 
 if(FORCED_CPU)

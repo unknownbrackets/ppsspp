@@ -1,5 +1,6 @@
 #!/bin/bash
 CMAKE=1
+CMAKE_GEN=
 
 # Check arguments
 while test $# -gt 0
@@ -16,7 +17,8 @@ do
 		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake ${CMAKE_ARGS}"
 			TARGET_OS=iOS
 			;;
-		--ios-xcode) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DIOS_PLATFORM=OS -GXcode ${CMAKE_ARGS}"
+		--ios-xcode) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DIOS_PLATFORM=OS ${CMAKE_ARGS}"
+			CMAKE_GEN="-GXcode"
 			TARGET_OS=iOS-xcode
 			;;
 		--rpi-armv6)
@@ -25,9 +27,9 @@ do
 		--rpi)
 			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv7.cmake ${CMAKE_ARGS}"
 			;;
-                --rpi64)
-                        CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv8.cmake ${CMAKE_ARGS}"
-                        ;;
+		--rpi64)
+			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv8.cmake ${CMAKE_ARGS}"
+			;;
 		--android) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=android/android.toolchain.cmake ${CMAKE_ARGS}"
 			TARGET_OS=Android
 			PACKAGE=1
@@ -60,6 +62,9 @@ do
 			export CC=/usr/bin/clang
 			export CXX=/usr/bin/clang++
 			;;
+		--windows)
+			CMAKE_GEN="-GNinja"
+			;;
 		--sanitize) echo "Enabling address-sanitizer if available"
 			CMAKE_ARGS="-DUSE_ASAN=ON ${CMAKE_ARGS}"
 			;;
@@ -83,7 +88,7 @@ set -e
 mkdir -p ${BUILD_DIR}
 pushd ${BUILD_DIR}
 
-cmake $CMAKE_ARGS ..
+cmake "$CMAKE_GEN" $CMAKE_ARGS ..
 
-make -j4 $MAKE_OPT
+cmake --build . -j 4 $MAKE_OPT
 popd
