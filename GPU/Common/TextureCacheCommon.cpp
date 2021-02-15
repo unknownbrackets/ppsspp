@@ -371,7 +371,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
 	// Should probably revisit how this works..
 	if (texCacheDebugDifference && gstate_c.needShaderTexClamp) {
-		ERROR_LOG(HLE, "Clearing shader texclamp?");
+		ERROR_LOG(HLE, "Clearing shader texclamp? (was %d)", gstate_c.needShaderTexClamp);
 	}
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
@@ -487,6 +487,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			nextNeedsChange_ = true;
 			// Fall through to the rebuild case.
 		}
+	} else if (texCacheDebugDifference) {
+		ERROR_LOG(HLE, "New texture");
 	}
 
 	// No texture found, or changed (depending on entry).
@@ -975,7 +977,7 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 					GeTextureFormatToString(entry.format), GeBufferFormatToString(framebuffer->format), fb_address);
 				return fbInfo;
 			} else {
-				WARN_LOG_ONCE(subarea, G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
+				WARN_LOG(G3D, "Texturing from framebuffer at %08x +%dx%d", fb_address, fbInfo.xOffset, fbInfo.yOffset);
 				return fbInfo;
 			}
 		} else {
@@ -987,6 +989,9 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 }
 
 void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
+	if (texCacheDebugDifference) {
+		ERROR_LOG(HLE, "Set framebuf (%08x)", candidate.fb ? candidate.fb->fb_address : 0xFFFFFFFF);
+	}
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	FramebufferMatchInfo fbInfo = candidate.match;
 
@@ -1012,6 +1017,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 		gstate_c.bgraTexture = false;
+		if (texCacheDebugDifference)
+			ERROR_LOG(HLE, "Tex offset x %d -> %d, y %d -> %d", (int)gstate_c.curTextureXOffset, (int)fbInfo.xOffset, (int)gstate_c.curTextureYOffset, (int)fbInfo.yOffset);
 		gstate_c.curTextureXOffset = fbInfo.xOffset;
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		u32 texW = (u32)gstate.getTextureWidth(0);
@@ -1020,6 +1027,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.SetNeedShaderTexclamp(true);
 		}
+		if (texCacheDebugDifference)
+			ERROR_LOG(HLE, "A Set texclamp = %d", gstate_c.needShaderTexClamp);
 
 		nextFramebufferTexture_ = framebuffer;
 		nextTexture_ = nullptr;
@@ -1030,6 +1039,8 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		}
 		Unbind();
 		gstate_c.SetNeedShaderTexclamp(false);
+		if (texCacheDebugDifference)
+			ERROR_LOG(HLE, "B Set texclamp = %d", gstate_c.needShaderTexClamp);
 		nextFramebufferTexture_ = nullptr;
 		nextTexture_ = nullptr;
 	}
@@ -1041,6 +1052,9 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 
 // Only looks for framebuffers.
 bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
+	if (texCacheDebugDifference) {
+		ERROR_LOG(HLE, "Set framebuf offset (+%d)", (int)yOffset);
+	}
 	if (!framebufferManager_->UseBufferedRendering()) {
 		return false;
 	}
