@@ -555,7 +555,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			samplerKey.mipFilt = false;
 			// Make sure to update the uniforms, and also texture - needs a recheck.
 			if (!texCacheDebugDifference) {
-				ERROR_LOG(HLE, "Depal");
+				// Not here.
 				gstate_c.Dirty(DIRTY_DEPAL);
 				gstate_c.SetUseShaderDepal(true);
 				gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
@@ -579,7 +579,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			if (!texCacheDebugDifference) {
 				gstate_c.SetUseShaderDepal(false);
 			} else if (gstate_c.useShaderDepal) {
-				ERROR_LOG(HLE, "Disable depal");
+				// Not here.
 			}
 		}
 	}
@@ -684,10 +684,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		// Need to rebind the pipeline since we switched it.
 		drawEngine_->DirtyPipeline();
 		// Since we may have switched render targets, we need to re-set depth/stencil etc states.
+		// Not here.
 		if (!texCacheDebugDifference)
 			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
-		else
-			ERROR_LOG(HLE, "Depal flush");
 	} else {
 		if (framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
 			imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
@@ -699,7 +698,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		if (!texCacheDebugDifference) {
 			gstate_c.SetUseShaderDepal(false);
 		} else if (gstate_c.useShaderDepal) {
-			ERROR_LOG(HLE, "Disable depal");
+			// Not here.
 		}
 
 		if (!texCacheDebugDifference)

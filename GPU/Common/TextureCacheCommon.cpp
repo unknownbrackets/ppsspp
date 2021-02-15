@@ -327,9 +327,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
-		if (texCacheDebugDifference) {
-			ERROR_LOG(HLE, "Bad texture found");
-		}
+		// Not here.
 		Unbind();
 		return nullptr;
 	}
@@ -348,9 +346,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
-			if (texCacheDebugDifference) {
-				ERROR_LOG(HLE, "Clut change detected");
-			}
+			// Not here.
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
@@ -370,21 +366,17 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
 	// Should probably revisit how this works..
-	if (texCacheDebugDifference && gstate_c.needShaderTexClamp) {
-		ERROR_LOG(HLE, "Clearing shader texclamp? (was %d)", gstate_c.needShaderTexClamp);
-	}
 	if (!texCacheDebugDifference)
 		gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	if (gstate_c.bgraTexture != isBgraBackend_) {
-		if (texCacheDebugDifference) {
-			ERROR_LOG(HLE, "BGRA detected - how?");
-		}
+		// Not here.
 		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		gstate_c.bgraTexture = isBgraBackend_;
 	}
-	gstate_c.bgraTexture = isBgraBackend_;
 
 	if (entryIter != cache_.end()) {
+		// Not here.
 		entry = entryIter->second.get();
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, format, maxLevel);
@@ -480,9 +472,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			VERBOSE_LOG(G3D, "Texture at %08x found in cache, applying", texaddr);
 			return entry; //Done!
 		} else {
-			if (texCacheDebugDifference) {
-				ERROR_LOG(HLE, "NOT A MATCH?  reason=%s", reason);
-			}
 			// Wasn't a match, we will rebuild.
 			nextChangeReason_ = reason;
 			nextNeedsChange_ = true;
@@ -514,6 +503,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			SetTextureFramebuffer(candidate);
 			return nullptr;
 		}
+	}
+
+	if (texCacheDebugDifference) {
+		ERROR_LOG(HLE, "Got past any framebuf match - bad?");
 	}
 
 	// Didn't match a framebuffer, keep going.
@@ -571,8 +564,10 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	entry->cluthash = cluthash;
 
-	gstate_c.curTextureWidth = w;
-	gstate_c.curTextureHeight = h;
+	if (!texCacheDebugDifference) {
+		gstate_c.curTextureWidth = w;
+		gstate_c.curTextureHeight = h;
+	}
 
 	nextTexture_ = entry;
 	if (nextFramebufferTexture_) {
@@ -991,7 +986,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	FramebufferMatchInfo fbInfo = candidate.match;
 
-	if (candidate.match.reinterpret) {
+	if (candidate.match.reinterpret && !texCacheDebugDifference) {
 		GEBufferFormat oldFormat = candidate.fb->format;
 		candidate.fb->format = candidate.match.reinterpretTo;
 		framebufferManager_->ReinterpretFramebuffer(candidate.fb, oldFormat, candidate.match.reinterpretTo);
@@ -1005,37 +1000,35 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		framebuffer->last_frame_used = gpuStats.numFlips;
 
 		// We need to force it, since we may have set it on a texture before attaching.
-		gstate_c.curTextureWidth = framebuffer->bufferWidth;
-		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+		if (!texCacheDebugDifference) {
+			gstate_c.curTextureWidth = framebuffer->bufferWidth;
+			gstate_c.curTextureHeight = framebuffer->bufferHeight;
+		}
 		if (gstate_c.bgraTexture) {
-			if (texCacheDebugDifference)
-				ERROR_LOG(HLE, "BGRA change");
+			// Not here.
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
-			if (texCacheDebugDifference)
-				ERROR_LOG(HLE, "Tex offset change");
+			// Not here.
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 		gstate_c.bgraTexture = false;
-		if (texCacheDebugDifference)
-			ERROR_LOG(HLE, "Tex offset x %d -> %d, y %d -> %d", (int)gstate_c.curTextureXOffset, (int)fbInfo.xOffset, (int)gstate_c.curTextureYOffset, (int)fbInfo.yOffset);
-		gstate_c.curTextureXOffset = fbInfo.xOffset;
-		gstate_c.curTextureYOffset = fbInfo.yOffset;
+		if (!texCacheDebugDifference) {
+			gstate_c.curTextureXOffset = fbInfo.xOffset;
+			gstate_c.curTextureYOffset = fbInfo.yOffset;
+		}
 		u32 texW = (u32)gstate.getTextureWidth(0);
 		u32 texH = (u32)gstate.getTextureHeight(0);
-		bool before = gstate_c.needShaderTexClamp;
 		if (!texCacheDebugDifference)
 			gstate_c.SetNeedShaderTexclamp(gstate_c.curTextureWidth != texW || gstate_c.curTextureHeight != texH);
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			if (!texCacheDebugDifference)
 				gstate_c.SetNeedShaderTexclamp(true);
 		}
-		if (texCacheDebugDifference)
-			ERROR_LOG(HLE, "A Set texclamp = %d => %d", before, gstate_c.needShaderTexClamp);
 
 		nextFramebufferTexture_ = framebuffer;
 		nextTexture_ = nullptr;
 	} else {
+		// Not here.
 		if (framebuffer->fbo) {
 			framebuffer->fbo->Release();
 			framebuffer->fbo = nullptr;
@@ -1052,9 +1045,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 
 // Only looks for framebuffers.
 bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
-	if (texCacheDebugDifference) {
-		ERROR_LOG(HLE, "Set framebuf offset (+%d)", (int)yOffset);
-	}
+	// Not here
 	if (!framebufferManager_->UseBufferedRendering()) {
 		return false;
 	}
