@@ -373,7 +373,8 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (texCacheDebugDifference && gstate_c.needShaderTexClamp) {
 		ERROR_LOG(HLE, "Clearing shader texclamp? (was %d)", gstate_c.needShaderTexClamp);
 	}
-	gstate_c.SetNeedShaderTexclamp(false);
+	if (!texCacheDebugDifference)
+		gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	if (gstate_c.bgraTexture != isBgraBackend_) {
 		if (texCacheDebugDifference) {
@@ -487,8 +488,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			nextNeedsChange_ = true;
 			// Fall through to the rebuild case.
 		}
-	} else if (texCacheDebugDifference) {
-		ERROR_LOG(HLE, "New texture");
 	}
 
 	// No texture found, or changed (depending on entry).
@@ -989,9 +988,6 @@ FramebufferMatchInfo TextureCacheCommon::MatchFramebuffer(
 }
 
 void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
-	if (texCacheDebugDifference) {
-		ERROR_LOG(HLE, "Set framebuf (%08x)", candidate.fb ? candidate.fb->fb_address : 0xFFFFFFFF);
-	}
 	VirtualFramebuffer *framebuffer = candidate.fb;
 	FramebufferMatchInfo fbInfo = candidate.match;
 
@@ -1012,8 +1008,12 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
 		if (gstate_c.bgraTexture) {
+			if (texCacheDebugDifference)
+				ERROR_LOG(HLE, "BGRA change");
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
+			if (texCacheDebugDifference)
+				ERROR_LOG(HLE, "Tex offset change");
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 		gstate_c.bgraTexture = false;
@@ -1023,12 +1023,15 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		u32 texW = (u32)gstate.getTextureWidth(0);
 		u32 texH = (u32)gstate.getTextureHeight(0);
-		gstate_c.SetNeedShaderTexclamp(gstate_c.curTextureWidth != texW || gstate_c.curTextureHeight != texH);
+		bool before = gstate_c.needShaderTexClamp;
+		if (!texCacheDebugDifference)
+			gstate_c.SetNeedShaderTexclamp(gstate_c.curTextureWidth != texW || gstate_c.curTextureHeight != texH);
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
-			gstate_c.SetNeedShaderTexclamp(true);
+			if (!texCacheDebugDifference)
+				gstate_c.SetNeedShaderTexclamp(true);
 		}
 		if (texCacheDebugDifference)
-			ERROR_LOG(HLE, "A Set texclamp = %d", gstate_c.needShaderTexClamp);
+			ERROR_LOG(HLE, "A Set texclamp = %d => %d", before, gstate_c.needShaderTexClamp);
 
 		nextFramebufferTexture_ = framebuffer;
 		nextTexture_ = nullptr;
@@ -1038,9 +1041,6 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 			framebuffer->fbo = nullptr;
 		}
 		Unbind();
-		gstate_c.SetNeedShaderTexclamp(false);
-		if (texCacheDebugDifference)
-			ERROR_LOG(HLE, "B Set texclamp = %d", gstate_c.needShaderTexClamp);
 		nextFramebufferTexture_ = nullptr;
 		nextTexture_ = nullptr;
 	}

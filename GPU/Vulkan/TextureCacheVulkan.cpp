@@ -554,13 +554,18 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			samplerKey.minFilt = false;
 			samplerKey.mipFilt = false;
 			// Make sure to update the uniforms, and also texture - needs a recheck.
-			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.SetUseShaderDepal(true);
-			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
+			if (!texCacheDebugDifference) {
+				ERROR_LOG(HLE, "Depal");
+				gstate_c.Dirty(DIRTY_DEPAL);
+				gstate_c.SetUseShaderDepal(true);
+				gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
+			}
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
-			gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
+			if (!texCacheDebugDifference) {
+				gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
+			}
 			curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 			if (framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
 				imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
@@ -571,7 +576,11 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		} else {
 			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 			drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
-			gstate_c.SetUseShaderDepal(false);
+			if (!texCacheDebugDifference) {
+				gstate_c.SetUseShaderDepal(false);
+			} else if (gstate_c.useShaderDepal) {
+				ERROR_LOG(HLE, "Disable depal");
+			}
 		}
 	}
 	if (depalShader) {
@@ -631,7 +640,8 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			verts[3].v = uvtop;
 
 			// We need to reapply the texture next time since we cropped UV.
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+			if (!texCacheDebugDifference)
+				gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		}
 
 		VkBuffer pushed;
@@ -664,7 +674,8 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
 		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
-		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
+		if (!texCacheDebugDifference)
+			gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 
 		framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
@@ -673,7 +684,10 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		// Need to rebind the pipeline since we switched it.
 		drawEngine_->DirtyPipeline();
 		// Since we may have switched render targets, we need to re-set depth/stencil etc states.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
+		if (!texCacheDebugDifference)
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
+		else
+			ERROR_LOG(HLE, "Depal flush");
 	} else {
 		if (framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET)) {
 			imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
@@ -682,9 +696,14 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		}
 
 		drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
-		gstate_c.SetUseShaderDepal(false);
+		if (!texCacheDebugDifference) {
+			gstate_c.SetUseShaderDepal(false);
+		} else if (gstate_c.useShaderDepal) {
+			ERROR_LOG(HLE, "Disable depal");
+		}
 
-		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
+		if (!texCacheDebugDifference)
+			gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
