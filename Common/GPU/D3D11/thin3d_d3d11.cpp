@@ -233,8 +233,8 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		context_(deviceContext1),
 		device1_(device1),
 		context1_(deviceContext1),
-		featureLevel_(featureLevel),
 		hWnd_(hWnd),
+		featureLevel_(featureLevel),
 		deviceList_(deviceList) {
 
 	// We no longer support Windows Phone.
