@@ -602,6 +602,9 @@ void DrawEngineVulkan::DoFlush() {
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
 	bool textureNeedsApply = false;
+	if (forceTexParamsDirty && !Memory::IsVRAMAddress(gstate.getTextureAddress(0))) {
+		forceTexParamsDirty = false;
+	}
 	if ((forceTexParamsDirty || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		texCacheDebugDifference = forceTexParamsDirty && !gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		if (texCacheDebugDifference) {
