@@ -606,6 +606,7 @@ void DrawEngineVulkan::DoFlush() {
 		forceTexParamsDirty = false;
 	}
 	if ((forceTexParamsDirty || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		GPUStateCache oldState = gstate_c;
 		texCacheDebugDifference = forceTexParamsDirty && !gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		if (texCacheDebugDifference) {
 			NOTICE_LOG(HLE, "#13741 - Force texture params check for tex %08x", gstate.getTextureAddress(0));
@@ -613,6 +614,16 @@ void DrawEngineVulkan::DoFlush() {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
+		if (texCacheDebugDifference && memcmp(&oldState, &gstate_c, sizeof(gstate_c)) != 0) {
+			uint8_t *prev = reinterpret_cast<uint8_t *>(&oldState);
+			uint8_t *next = reinterpret_cast<uint8_t *>(&gstate_c);
+			for (size_t i = 0; i < sizeof(gstate_c); ++i) {
+				if (prev[i] != next[i]) {
+					ERROR_LOG(HLE, "GSTATE CACHE CHANGED at %d", i);
+					break;
+				}
+			}
+		}
 	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
 		// This catches the case of clearing a texture.
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -814,11 +825,19 @@ void DrawEngineVulkan::DoFlush() {
 
 		if (textureNeedsApply) {
 			textureCache_->ApplyTexture();
+			VkImageView prevImageView = imageView;
+			VkSampler prevSampler = sampler;
 			textureCache_->GetVulkanHandles(imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
 				imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
 			if (sampler == VK_NULL_HANDLE)
 				sampler = nullSampler_;
+			if (texCacheDebugDifference) {
+				if (prevImageView != imageView)
+					ERROR_LOG(HLE, "VK image view changed");
+				if (prevSampler != sampler)
+					ERROR_LOG(HLE, "VK image view changed");
+			}
 		}
 
 		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
@@ -938,11 +957,19 @@ void DrawEngineVulkan::DoFlush() {
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (textureNeedsApply) {
 				textureCache_->ApplyTexture();
+				VkImageView prevImageView = imageView;
+				VkSampler prevSampler = sampler;
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
 					imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
 				if (sampler == VK_NULL_HANDLE)
 					sampler = nullSampler_;
+				if (texCacheDebugDifference) {
+					if (prevImageView != imageView)
+						ERROR_LOG(HLE, "VK image view changed");
+					if (prevSampler != sampler)
+						ERROR_LOG(HLE, "VK image view changed");
+				}
 			}
 			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
 				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false, false, decOptions_.expandAllWeightsToFloat);  // usehwtransform
