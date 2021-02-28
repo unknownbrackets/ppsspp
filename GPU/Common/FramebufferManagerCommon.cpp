@@ -453,6 +453,9 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 		v->fbo = nullptr;
 	}
 
+	// Deleting framebufs may require us to reassign a framebuffer as texture.
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+
 	// Wipe some pointers
 	if (currentRenderVfb_ == v)
 		currentRenderVfb_ = nullptr;
@@ -1308,6 +1311,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 			}
 		}
 		fbosToDelete_.push_back(old.fbo);
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		if (needGLESRebinds_) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "ResizeFramebufFBO");
 		}
