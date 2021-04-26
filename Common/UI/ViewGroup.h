@@ -302,7 +302,8 @@ public:
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel, bool triggerClick);
 
-	void HighlightChoice(unsigned int choice);
+	void HighlightChoice(int choice);
+	void EnableChoice(int choice, bool enabled);
 
 	bool Key(const KeyInput &input) override;
 
@@ -331,6 +332,9 @@ public:
 	T *AddTab(const std::string &title, T *tabContents) {
 		AddTabContents(title, (View *)tabContents);
 		return tabContents;
+	}
+	void EnableTab(int tab, bool enabled) {
+		tabStrip_->EnableChoice(tab, enabled);
 	}
 
 	void SetCurrentTab(int tab, bool skipTween = false);
