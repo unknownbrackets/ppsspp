@@ -501,6 +501,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_ANDROID_SCOPED_STORAGE:
 		if (useScopedStorageIfRequired && androidVersion >= 28)
 			return true;
+	case SYSPROP_HAS_KEYBOARD:
+		return true;
 	default:
 		return false;
 	}
